@@ -319,16 +319,16 @@ static void aocmd_osp_info_show() {
 }
 
 
-// Parse 'osp send <addr> <tele> <arg>...', validate, send, optionally receive
+// Parse 'osp send <addr> <tele> <data>...', validate, send, optionally receive
 static void aocmd_osp_send( int argc, char * argv[] ) {
-  if( argc<4   ) { Serial.printf("ERROR: expected <addr> <tele> <args>...\n"); return; }
-  if( argc>4+8 ) { Serial.printf("ERROR: too many <args>\n"); return; }
+  if( argc<4   ) { Serial.printf("ERROR: 'send' expects <addr> <tele> <args>...\n"); return; }
+  if( argc>4+8 ) { Serial.printf("ERROR: 'send' has too many args\n"); return; }
   int payloadsize = argc-4;
 
   // get <addr>
   uint16_t addr;
   if( !aocmd_cint_parse_hex(argv[2],&addr) || !AOOSP_ADDR_ISOK(addr) ) {
-    Serial.printf("ERROR: illegal <addr> '%s'\n",argv[2]);
+    Serial.printf("ERROR: 'send' expected <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_GLOBALMIN,AOOSP_ADDR_GLOBALMAX,argv[2]);
     return;
   }
 
@@ -338,7 +338,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
   int found = aocmd_osp_variant_find( argv[3], variants, SEND_FINDMAX);
   const aocmd_osp_variant_t * var= 0;
   if( found==0 ) {
-    Serial.printf("ERROR: no <tele> '%s' found\n", argv[3]);
+    Serial.printf("ERROR: 'send' has no <tele> matching '%s'\n", argv[3]);
     return;
   } else if( found==1 ) {
     var = &aocmd_osp_variant[variants[0]];
@@ -360,13 +360,13 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
     }
   }
 
-  // get <arg>... already in tx[]
+  // get <data>... already in tx[]
   uint8_t tx[AOSPI_TELE_MAXSIZE];
   for( int tix=3, aix=4; aix<argc; aix++, tix++ ) { // tix index in tx[], aix index in argv[]
-    uint16_t arg;
-    bool ok= aocmd_cint_parse_hex(argv[aix],&arg) ;
-    if( !ok || arg>0xFF ) { Serial.printf("ERROR: illegal <arg> '%s'\n",argv[aix]); return; }
-    tx[tix] = arg;
+    uint16_t data;
+    bool ok= aocmd_cint_parse_hex(argv[aix],&data) ;
+    if( !ok || data>0xFF ) { Serial.printf("ERROR: 'send' expected <data> 00..FF, not '%s'\n",argv[aix]); return; }
+    tx[tix] = data;
   }
 
   // Constructing rest of telegram
@@ -388,6 +388,9 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
       // Validate addressing
       if( AOOSP_ADDR_ISBROADCAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support broadcast\n",var->tid,var->swname);
       if( OAOSP_ADDR_ISMULTICAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support multicast\n",var->tid,var->swname);
+      // Extra check for init (to be aligned with dirmux)
+      if( var->tid==2 && aospi_dirmux_is_loop()  ) Serial.printf("validate: 02/initbidir with dirmux in loop\n");
+      if( var->tid==3 && aospi_dirmux_is_bidir() ) Serial.printf("validate: 03/initloop with dirmux in bidir\n");
     } else {
       // Validate: no info available
       Serial.printf("validate: no info %02X/??? to validate against\n",var->tid);
@@ -403,6 +406,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
     if( AOCMD_OSP_VARIANT_HAS_RESPONSE(var) ) {
       result = aospi_txrx(tx, payloadsize+4, rx, var->respsize+4);
       Serial.printf("rx %s",aoosp_prt_bytes(rx,var->respsize+4));
+      if( argv[0][0]!='@' ) Serial.printf(" (%ld us)", aospi_txrx_us() );
     } else {
       result = aospi_tx(tx, payloadsize+4);
       Serial.printf("rx none");
@@ -411,6 +415,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
     int actsize;
     result = aospi_txrx(tx, payloadsize+4, rx, AOSPI_TELE_MAXSIZE, &actsize );
     Serial.printf("rx %s", aoosp_prt_bytes(rx,actsize));
+    if( argv[0][0]!='@' ) Serial.printf(" (%ld us)", aospi_txrx_us() );
   }
   Serial.printf(" %s\n",aoresult_to_str(result));
 }
@@ -424,10 +429,10 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
     if( aix==argc-1 && aocmd_cint_isprefix("crc",argv[aix]) ) {
       tx[tix] = aoosp_crc(tx,tix);
     } else {
-      uint16_t arg;
-      bool ok= aocmd_cint_parse_hex(argv[aix],&arg) ;
-      if( !ok || arg>0xFF ) { Serial.printf("ERROR: illegal <data> '%s'\n",argv[aix]); return; }
-      tx[tix] = arg;
+      uint16_t data;
+      bool ok= aocmd_cint_parse_hex(argv[aix],&data) ;
+      if( !ok || data>0xFF ) { Serial.printf("ERROR: '%s' expected <data> 00..FF, not '%s'\n",argv[1], argv[aix]); return; }
+      tx[tix] = data;
     }
   }
   int telesize = argc-2;
@@ -475,6 +480,9 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
       if( ! AOCMD_OSP_VARIANT_HAS_INFO(var) ) Serial.printf("validate: no info %02X/??? to validate against\n",var->tid);
       // crc
       if( aoosp_crc(tx,telesize-1)!=tx[telesize-1] ) Serial.printf("validate: crc %02X is incorrect (should be %02X)\n",tx[telesize-1],aoosp_crc(tx,telesize-1));
+      // Extra check for init (to be aligned with dirmux)
+      if( tx[2]==2 && aospi_dirmux_is_loop()  ) Serial.printf("validate: 02/initbidir with dirmux in loop\n");
+      if( tx[2]==3 && aospi_dirmux_is_bidir() ) Serial.printf("validate: 03/initloop with dirmux in bidir\n");
     }
   }
 
@@ -488,6 +496,7 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
     int actsize;
     result = aospi_txrx(tx, telesize, rx, AOSPI_TELE_MAXSIZE, &actsize);
     Serial.printf("rx %s",aoosp_prt_bytes(rx,actsize));
+    if( argv[0][0]!='@' ) Serial.printf(" (%ld us)", aospi_txrx_us() );
   } else { // command "osp tx"
     result = aospi_tx(tx, telesize);
     Serial.printf("rx none");
@@ -498,7 +507,7 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
 
 // Parse 'osp resetinit'
 static void aocmd_osp_resetinit( int argc, char * argv[] ) {
-  if( argc!=2 ) { Serial.printf("ERROR: too many arguments\n"); return; }
+  if( argc!=2 ) { Serial.printf("ERROR: 'resetinit' has too many args\n"); return; }
 
   uint16_t last; int loop;
   aoresult_t result = aoosp_exec_resetinit(&last,&loop);
@@ -509,7 +518,7 @@ static void aocmd_osp_resetinit( int argc, char * argv[] ) {
 
 // Parse 'osp enum'
 static void aocmd_osp_enum( int argc, char * argv[] ) {
-  if( argc!=2 ) { Serial.printf("ERROR: too many arguments\n"); return; }
+  if( argc!=2 ) { Serial.printf("ERROR: 'enum' has too many args\n"); return; }
 
   uint16_t last; int loop;
   aoresult_t result = aoosp_exec_resetinit(&last,&loop);
@@ -577,14 +586,14 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
     if( argc!=3 ) { Serial.printf("ERROR: 'dirmux' has too many args\n"); return; }
     if( aocmd_cint_isprefix("bidir",argv[2]) ) aospi_dirmux_set_bidir();
     else if( aocmd_cint_isprefix("loop",argv[2]) ) aospi_dirmux_set_loop();
-    else { Serial.printf("ERROR: 'dirmux' must have 'bidir' or 'loop'\n"); return; }
+    else { Serial.printf("ERROR: 'dirmux' expects 'bidir' or 'loop', not '%s'\n", argv[2]); return; }
     if( argv[0][0]!='@' ) aocmd_osp_dirmux_show();
   } else if( aocmd_cint_isprefix("validate",argv[1]) ) {
     if( argc==2 ) { aocmd_osp_validate_show(); return; }
     if( argc!=3 ) { Serial.printf("ERROR: 'validate' has too many args\n"); return; }
     if( aocmd_cint_isprefix("enable",argv[2]) ) oacmd_osp_validate=1;
     else if( aocmd_cint_isprefix("disable",argv[2]) ) oacmd_osp_validate=0;
-    else { Serial.printf("ERROR: 'validate' must have 'enable' or 'disable'\n"); return; }
+    else { Serial.printf("ERROR: 'validate' expects 'enable' or 'disable', not '%s'\n",argv[2]); return; }
     if( argv[0][0]!='@' ) aocmd_osp_validate_show();
   } else if( aocmd_cint_isprefix("hwtest",argv[1]) ) {
     if( argc==2 ) { aocmd_osp_hwtestout_show(); aocmd_osp_hwtestin_show(); return; }
@@ -593,20 +602,20 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
       if( argc==3 ) { aocmd_osp_hwtestout_show(); return; }
       if( aocmd_cint_isprefix("enable",argv[3]) ) aospi_outoena_set(HIGH);
       else if( aocmd_cint_isprefix("disable",argv[3]) ) aospi_outoena_set(LOW);
-      else { Serial.printf("ERROR: 'hwtest out' must have 'enable' or 'disable', not '%s'\n",argv[3]); return; }
+      else { Serial.printf("ERROR: 'hwtest out' expects 'enable' or 'disable', not '%s'\n",argv[3]); return; }
       if( argv[0][0]!='@' ) aocmd_osp_hwtestout_show();
     } else if( aocmd_cint_isprefix("in",argv[2]) ) {
       if( argc==3 ) { aocmd_osp_hwtestin_show(); return; }
       if( aocmd_cint_isprefix("enable",argv[3]) ) aospi_inoena_set(HIGH);
       else if( aocmd_cint_isprefix("disable",argv[3]) ) aospi_inoena_set(LOW);
-      else { Serial.printf("ERROR: 'hwtest in' must have 'enable' or 'disable', not '%s'\n",argv[3]); return; }
+      else { Serial.printf("ERROR: 'hwtest in' expects 'enable' or 'disable', not '%s'\n",argv[3]); return; }
       if( argv[0][0]!='@' ) aocmd_osp_hwtestin_show();
-    } else { Serial.printf("ERROR: expected 'out' or 'in', not '%s'\n", argv[2]); return; }
+    } else { Serial.printf("ERROR: 'hwtest' expects 'out' or 'in', not '%s'\n", argv[2]); return; }
   } else if( aocmd_cint_isprefix("count",argv[1]) ) {
     if( argc==2 ) { aocmd_osp_count_show(); return; }
     if( argc!=3 ) { Serial.printf("ERROR: 'count' has too many args\n"); return; }
     if( aocmd_cint_isprefix("reset",argv[2]) ) { /*nothing */ }
-    else { Serial.printf("ERROR: 'count' may have 'reset' (not '%s')\n", argv[2]); return; }
+    else { Serial.printf("ERROR: 'count' expects 'reset', not '%s'\n", argv[2]); return; }
     aospi_txcount_reset();
     aospi_rxcount_reset();
     if( argv[0][0]!='@' ) aocmd_osp_count_show();
@@ -617,7 +626,7 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
     if( aocmd_cint_isprefix("none",argv[2]) ) level= aoosp_loglevel_none;
     else if( aocmd_cint_isprefix("args",argv[2]) ) level= aoosp_loglevel_args;
     else if( aocmd_cint_isprefix("tele",argv[2]) ) level= aoosp_loglevel_tele;
-    else { Serial.printf("ERROR: 'log' has 'none', 'args', or 'tele' (not '%s')\n", argv[2]); return; }
+    else { Serial.printf("ERROR: 'log' expects 'none', 'args', or 'tele', not '%s'\n", argv[2]); return; }
     aoosp_loglevel_set(level);
     if( argv[0][0]!='@' ) aocmd_osp_log_show();
   } else if( aocmd_cint_isprefix("info",argv[1]) ) {
@@ -627,10 +636,10 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
     #define LIST_FINDMAX 9
     int variants[LIST_FINDMAX];
     int found = aocmd_osp_variant_find( argv[2], variants, LIST_FINDMAX);
-    if( found==0 ) { Serial.printf("ERROR: no <tele> found ('%s')\n", argv[2]); return; }
+    if( found==0 ) { Serial.printf("ERROR: 'info' <tele> '%s' has no match\n", argv[2]); return; }
     int list= found==LIST_FINDMAX ? found-1 : found;
     for( int i=0; i<list; i++ ) aocmd_osp_variant_print( &aocmd_osp_variant[variants[i]] );
-    if( found!=list ) { Serial.printf("WARNING: too many matches (list truncated)\n"); return; }
+    if( found!=list ) { Serial.printf("WARNING: 'info' has too many matches (list truncated)\n"); return; }
   } else if( aocmd_cint_isprefix("resetinit",argv[1]) ) {
     aocmd_osp_resetinit(argc, argv);
   } else if( aocmd_cint_isprefix("enum",argv[1]) ) {
@@ -640,7 +649,7 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
   } else if( aocmd_cint_isprefix("tx",argv[1]) || aocmd_cint_isprefix("trx",argv[1])) {
     aocmd_osp_trx(argc, argv);
   } else {
-    Serial.printf("ERROR: unknown argument ('%s')\n", argv[1]); return;
+    Serial.printf("ERROR: 'osp' has unknown argument ('%s')\n", argv[1]); return;
   }
 }
 
@@ -648,20 +657,21 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
 // The long help text for the "osp" command.
 static const char aocmd_osp_longhelp[] =
   "SYNTAX: osp\n"
-  "- shows mux, validate, and count status\n"
+  "- shows mux, validate, count and log status\n"
   "SYNTAX: osp dirmux [ bidir | loop ]\n"
   "- without optional argument shows the status of the direction mux\n"
   "- with optional argument sets the direction mux to bi-directional or loop\n"
-  "SYNTAX: osp validate [enable|disable`]\n"
+  "SYNTAX: osp validate [enable|disable]\n"
   "- without optional argument shows the status of telegram validation\n"
   "- with optional argument sets it\n"
-  "- this validates (checks consistency) telegrams entered with 'send'/'tx'\n"
+  "- this validates (checks consistency of) telegrams issued with 'send'/'tx'\n"
   "- enabled is slower, but invalid telegrams will be sent anyhow\n"
   "SYNTAX: osp hwtest (out|in) [enable|disable]\n"
-  "- hardware test for the output enable of the out and in control lines\n"
-  "- without optional argument shows the status of a line\n"
+  "- hardware test for the output enable lines of the OUT and IN ports\n"
+  "- without optional argument shows the status of output enable lines\n"
   "- with optional argument sets it\n"
-  "- this is for testing only; these lines control two signalling LEDs on OSP32\n"
+  "- these output enable lines also control two signaling LEDs on OSP32\n"
+  "- this is for testing only; do not use when telegrams are sent\n"
   "SYNTAX: osp count [ reset ]\n"
   "- without optional argument shows how many telegrams were sent and received\n"
   "- with 'reset', resets counters to 0\n"
@@ -669,7 +679,7 @@ static const char aocmd_osp_longhelp[] =
   "SYNTAX: osp log [ none | args | tele ]\n"
   "- without optional argument shows log status, with argument sets it\n"
   "- logs nothing, telegram name with args, or even raw telegram bytes\n"
-  "- this is logs calls to the osp library, not the spi library used by 'osp'\n"
+  "- this logs calls to the osp library, not the spi library used by 'osp'\n"
   "SYNTAX: osp info [ <tele> ]\n"
   "- without optional arguments lists all (known) telegrams\n"
   "- with argument, gives info on telegrams with <tele> in name (max 8)\n"
@@ -690,7 +700,7 @@ static const char aocmd_osp_longhelp[] =
   "- note that a 'c' as last <data> is treated as crc not as 0C\n"
   "- 'osp tx A0 00 05 B1' and 'osp tx A0 00 05 crc' are 'osp send 000 goactive'\n"
   "NOTES:\n"
-  "- some commands use leading @ to suppress output\n"
+  "- supports @-prefix to suppress output\n"
   "- <addr> is a node address in hex (1..3EA, 0 for broadcast, 3Fx for group)\n"
   "- <tele> is either a 2 digit hex number, or a (partial) telegram name\n"
   "- <data> is a (one-byte) argument in hex 00..FF\n"

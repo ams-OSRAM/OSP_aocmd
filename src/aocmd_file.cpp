@@ -245,7 +245,7 @@ static void aocmd_file_write_streamfunc( int argc, char * argv[] ) {
 static void aocmd_file_main( int argc, char * argv[] ) {
   AORESULT_ASSERT( EEPROM.length()==AOCMD_FILE_BOOTCMD_EEPROMSIZE ); // inited
   if( argc>2 ) {
-    Serial.printf("ERROR: too many arguments\n"); return;
+    Serial.printf("ERROR: 'file' has too many args\n"); return;
   } else if( argc>1 && aocmd_cint_isprefix("show",argv[1])) {
     Serial.printf("file: 'boot.cmd' ");
     if( !aocmd_file_bootcmd_available() ) { Serial.printf("empty\n"); return; }
@@ -261,7 +261,7 @@ static void aocmd_file_main( int argc, char * argv[] ) {
     aocmd_file_write_setprompt();
     aocmd_cint_set_streamfunc(aocmd_file_write_streamfunc);
   } else {
-    Serial.printf("ERROR: needs 'show', 'exec', or 'record'\n"); return;
+    Serial.printf("ERROR: 'file' expects 'show', 'exec', or 'record', not '%s'\n",argv[1]); return;
   }
 }
 
@@ -272,12 +272,13 @@ static const char aocmd_file_longhelp[] =
   "- shows the content of the file (prints to console)\n"
   "SYNTAX: file exec\n"
   "- feed the content of file to the command interpreter (executes it)\n"
-  "SYNTAX: file record <line>...\n"
+  "SYNTAX: file record\n"
+  "- prompt changes and <line>s are entered (each terminated by CR)\n"
   "- every <line> is written to the file\n"
-  "- empty <line> stops streaming mode and commits content to file\n"
+  "- an empty <line> stops recording and commits content to file\n"
   "NOTES:\n"
   "- there is only one file (boot.cmd); it is run on cold startup\n"
-  "- can make it empty with 'file record'\n"
+  "- can make it empty with 'file record', then empty line\n"
 ;
 
 

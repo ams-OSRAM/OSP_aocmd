@@ -67,7 +67,7 @@ static void aocmd_version_main( int argc, char * argv[] ) {
     if( argv[0][0]!='@' ) aocmd_version_extra();
     return;
   }
-  Serial.printf("ERROR: unknown arguments for version\n" ); return;
+  Serial.printf("ERROR: 'version' has unknown argument ('%s')\n", argv[1]); return;
 }
 
 

@@ -27,25 +27,26 @@
 
 
 
-static int aocmd_said_i2c_scan(uint16_t addr) {
+static int aocmd_said_i2c_scan(uint16_t addr, int verbose) {
   // Power the I2C bus
   aoresult_t result= aoosp_exec_i2cpower(addr);
   if(result!=aoresult_ok) { Serial.printf("ERROR: aoosp_exec_i2cpower(%03X) failed (%s)\n", addr, aoresult_to_str(result) ); return 0; }
   
   // Scan all i2c devices
-  Serial.printf("SAID %03X has I2C (now powered)\n",addr);
+  if( verbose ) Serial.printf("SAID %03X has I2C (now powered)\n",addr);
   int count= 0;
   for( uint8_t daddr7=0; daddr7<0x80; daddr7++ ) {
-    if( daddr7 % 16 == 0) Serial.printf("  %02x: ",daddr7);
+    if( verbose ) if( daddr7 % 16 == 0) Serial.printf("  %02x: ",daddr7);
     // Try to read at address 0 of device daddr7
     uint8_t buf[8];
     result = aoosp_exec_i2cread8(addr, daddr7, 0x00, buf, 1);
     int i2cfail=  result==aoresult_dev_i2cnack || result==aoresult_dev_i2ctimeout;
     if( result!=aoresult_ok && !i2cfail ) { Serial.printf("ERROR: aoosp_exec_i2cread8(%03X) failed (%s)\n", addr, aoresult_to_str(result) ); return 0; }
-    if( i2cfail ) Serial.printf(" %02x ",daddr7); else Serial.printf("[%02x]",daddr7); // [] brackets indicate presence
+    if( i2cfail ) { if(verbose) Serial.printf(" %02x ",daddr7); } else Serial.printf("[%02x]",daddr7); // [] brackets indicate presence
     if( !i2cfail ) count++;
-    if( daddr7 % 16 == 15) Serial.printf("\n");
+    if( verbose ) if( daddr7 % 16 == 15) Serial.printf("\n");
   }
+  if( !verbose && count>0 ) Serial.printf(" ");
   Serial.printf("SAID %03X has %d I2C devices\n",addr, count);
   return count;
 }
@@ -83,7 +84,7 @@ static void aocmd_said_i2c( int argc, char * argv[] ) {
     result = aoosp_exec_i2cenable_get(addr, &enable);
     if(result!=aoresult_ok) { Serial.printf("ERROR: aoosp_exec_i2cenable_get(%03X) failed (%s)\n", addr, aoresult_to_str(result) ); return; }
     if(!enable ) { Serial.printf("ERROR: SAID at %03X does not have i2c bridge (OTP bit not set)\n", addr ); return; }
-    aocmd_said_i2c_scan(addr);
+    aocmd_said_i2c_scan(addr,argv[0][0]!='@');
   } else {
     // Broadcast is interpreted as looping over chain
     // resetinit forgotten?
@@ -93,7 +94,7 @@ static void aocmd_said_i2c( int argc, char * argv[] ) {
     // Scan all OSP nodes
     int i2ccount=0;
     int saidcount=0;
-    for( int addr=1; addr<=AOOSP_ADDR_MAX; addr++ ) {
+    for( int addr=AOOSP_ADDR_UNICASTMIN; addr<=AOOSP_ADDR_UNICASTMAX; addr++ ) {
       // Is this (addr) a SAID?
       uint32_t id;
       result = aoosp_send_identify(addr, &id );
@@ -108,11 +109,11 @@ static void aocmd_said_i2c( int argc, char * argv[] ) {
       if( ! enable ) continue;
       
       // Scan SAID at addr
-      i2ccount+= aocmd_said_i2c_scan(addr);
+      i2ccount+= aocmd_said_i2c_scan(addr,argv[0][0]!='@');
       saidcount++;
-      Serial.printf("\n");
+      if( argv[0][0]!='@' ) Serial.printf("\n");
     }
-    Serial.printf("%d SAIDs have %d I2C devices\n", saidcount, i2ccount);
+    Serial.printf("total %d SAIDs have %d I2C devices\n", saidcount, i2ccount);
   }
     
 }
@@ -122,12 +123,12 @@ static void aocmd_said_i2c( int argc, char * argv[] ) {
 static void aocmd_said_otp( int argc, char * argv[] ) {
   aoresult_t result;
   
-  if( argc<3 ) { Serial.printf("ERROR: otp requires <addr> of SAID\n"); return; }
+  if( argc<3 ) { Serial.printf("ERROR: 'otp' expected <addr> of SAID\n"); return; }
   
   // get <addr>
   uint16_t addr;
   if( !aocmd_cint_parse_hex(argv[2],&addr) || !AOOSP_ADDR_ISUNICAST(addr) ) {
-    Serial.printf("ERROR: illegal <addr> '%s'\n",argv[2]);
+    Serial.printf("ERROR: 'otp' expected <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_UNICASTMIN,AOOSP_ADDR_UNICASTMAX,argv[2]);
     return;
   }
 
@@ -145,8 +146,8 @@ static void aocmd_said_otp( int argc, char * argv[] ) {
 
   // get <otpaddr>
   uint16_t otpaddr;
-  if( !aocmd_cint_parse_hex(argv[3],&otpaddr) || otpaddr>0x20 ) {
-    Serial.printf("ERROR: illegal <otpaddr> '%s' (0x00..0x20)\n",argv[2]);
+  if( !aocmd_cint_parse_hex(argv[3],&otpaddr) || otpaddr<AOOSP_OTPADDR_CUSTOMER_MIN || otpaddr>AOOSP_OTPADDR_CUSTOMER_MAX ) {
+    Serial.printf("ERROR: 'otp' expected <otpaddr> %02X..%02X, not '%s'\n",AOOSP_OTPADDR_CUSTOMER_MIN,AOOSP_OTPADDR_CUSTOMER_MAX,argv[3]);
     return;
   }
   
@@ -175,13 +176,13 @@ static void aocmd_said_otp( int argc, char * argv[] ) {
 // The handler for the "said" command
 static void aocmd_said_main( int argc, char * argv[] ) {
   if( argc==1 ) {
-    Serial.printf("ERROR: missing argument\n"); return;
+    Serial.printf("ERROR: 'said' expects argument\n"); return;
   } else if( aocmd_cint_isprefix("i2c",argv[1]) ) {
     aocmd_said_i2c(argc, argv);
   } else if( aocmd_cint_isprefix("otp",argv[1]) ) {
     aocmd_said_otp(argc, argv);
   } else {
-    Serial.printf("ERROR: unknown argument\n"); return;
+    Serial.printf("ERROR: 'said' has unknown argument ('%s')\n", argv[1]); return;
   }
 }
 
@@ -193,13 +194,14 @@ static const char aocmd_said_longhelp[] =
   "- if <addr> is 000, loops over entire chain\n"
   "- at this moment 'scan' is only available sub command, so it may be left out\n"
   "SYNTAX: said otp <addr> [ <otpaddr> [ <data> ] ]\n"
-  "- read/writes OTP memory of the SAID at address <addr>\n"
-  "- without optional arguments dumps entire OTP memory\n"
+  "- read/writes OTP memory (customer area) of the SAID at address <addr>\n"
+  "- without optional arguments dumps OTP memory\n"
   "- with <otpaddr> reads OTP location <otpaddr>\n"
-  "- with <data> writes <data> to OTP location\n"
+  "- with <data> writes <data> to OTP location <otpaddr>\n"
   "NOTES:\n"
+  "- supports @-prefix to suppress output\n"
   "- commands assume chain is initialized (e.g. 'osp resetinit')\n"
-  "- <addr> is a node address in hex (1..3EA, 0 for broadcast, 3Fx for group)\n"
+  "- <addr> is a node address in hex (001..3EA, 000 for broadcast, 3Fx for group)\n"
   "- <otpdata> is a (one-byte) address in hex 00..FF\n"
   "- <data> is a (one-byte) argument in hex 00..FF\n"
 ;
