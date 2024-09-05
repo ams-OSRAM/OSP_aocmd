@@ -105,7 +105,7 @@ static void aocmd_board_main( int argc, char * argv[] ) {
     }
     int clk;
     bool ok = aocmd_cint_parse_dec(argv[2],&clk) ;
-    if( !ok ) { Serial.printf("ERROR: 'cpu' expected frequency, not '%s'\n",argv[2]); return; }
+    if( !ok ) { Serial.printf("ERROR: 'cpu' expects frequency, not '%s'\n",argv[2]); return; }
     setCpuFrequencyMhz(clk); //  240, 160, 80
     if( argv[0][0]!='@' ) aocmd_board_clk_show();
     return;

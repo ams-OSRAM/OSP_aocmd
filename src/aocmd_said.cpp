@@ -123,12 +123,12 @@ static void aocmd_said_i2c( int argc, char * argv[] ) {
 static void aocmd_said_otp( int argc, char * argv[] ) {
   aoresult_t result;
   
-  if( argc<3 ) { Serial.printf("ERROR: 'otp' expected <addr> of SAID\n"); return; }
+  if( argc<3 ) { Serial.printf("ERROR: 'otp' expects <addr> of SAID\n"); return; }
   
   // get <addr>
   uint16_t addr;
   if( !aocmd_cint_parse_hex(argv[2],&addr) || !AOOSP_ADDR_ISUNICAST(addr) ) {
-    Serial.printf("ERROR: 'otp' expected <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_UNICASTMIN,AOOSP_ADDR_UNICASTMAX,argv[2]);
+    Serial.printf("ERROR: 'otp' expects <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_UNICASTMIN,AOOSP_ADDR_UNICASTMAX,argv[2]);
     return;
   }
 
@@ -147,7 +147,7 @@ static void aocmd_said_otp( int argc, char * argv[] ) {
   // get <otpaddr>
   uint16_t otpaddr;
   if( !aocmd_cint_parse_hex(argv[3],&otpaddr) || otpaddr<AOOSP_OTPADDR_CUSTOMER_MIN || otpaddr>AOOSP_OTPADDR_CUSTOMER_MAX ) {
-    Serial.printf("ERROR: 'otp' expected <otpaddr> %02X..%02X, not '%s'\n",AOOSP_OTPADDR_CUSTOMER_MIN,AOOSP_OTPADDR_CUSTOMER_MAX,argv[3]);
+    Serial.printf("ERROR: 'otp' expects <otpaddr> %02X..%02X, not '%s'\n",AOOSP_OTPADDR_CUSTOMER_MIN,AOOSP_OTPADDR_CUSTOMER_MAX,argv[3]);
     return;
   }
   

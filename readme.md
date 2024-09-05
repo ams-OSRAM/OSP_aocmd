@@ -56,21 +56,62 @@ executed on power-on-reset. The maximum size of `boot.cmd` is 2k byte.
 
 ### Example commands
 
-This section gives a flavor of the stock commands. It is possible to add your 
-own, and for example the _aomw_ and _aoapps_ libraries add (more high-level) 
+This section gives a flavor of the stock commands. It is possible to 
+add your own, and for example the _aomw_ and _aoapps_ libraries add 
+(more high-level) commands. This does mean that it depend on the firmware 
+flashed to the ESP32 which commands are available. To follow the below 
+command fragments it is suggested to use the firmware
+[osplink](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink).
+Others, like [saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+also include most commands, but the included apps need to be stopped first
+otherwise their control of the OSP chain might interfere with the entered
 commands.
 
-The easiest command is `echo`.
+Once a terminal is connected and the OSP32 board is rebooted, we are greeted 
+with banner.
 
-```text
+```
+  ____   _____ _____    _ _       _
+ / __ \ / ____|  __ \  | (_)     | |
+| |  | | (___ | |__) | | |_ _ __ | | __
+| |  | |\___ \|  ___/  | | | '_ \| |/ /
+| |__| |____) | |      | | | | | |   <
+ \____/|_____/|_|      |_|_|_| |_|_|\_\
+OSPlink - version 1.7
+
+spi: init
+osp: init
+cmd: init
+mw: init
+ui32: init
+
+No 'boot.cmd' file available to execute
+Type 'help' for help
+>> 
+```
+
+Note that a prompt `>>` is printed. This means that commands can be entered.
+The easiest commands are `version` and `echo` (shown below with an extra CR 
+in between):
+
+```
+>> version
+app     : OSPlink 1.7
+runtime : Arduino ESP32 3_0_3
+compiler: 12.2.0
+arduino : 10607 (likely IDE2.x)
+compiled: Sep  3 2024, 09:41:17
+aolibs  : result 0.4.0 spi 0.5.0 osp 0.4.0 cmd 0.5.1
+>> 
 >> echo Hello, world!
 Hello, world!
 ```
 
 A better place to start however, is the `help` command. 
 
-```text
+```
 >> help
+Available commands
 board - board info and commands
 echo - echo a message (or en/disables echoing)
 file - manages the file 'boot.cmd' with commands run at startup
@@ -81,11 +122,12 @@ topo - build, query and use topology
 version - version of this application, its libraries and tools to build it
 ```
 
-The `help` command in isolation lists all commands, 
-but it can also give help on a specific command; just append its name.
-Here we show help on version, since that help text is nicely short.
 
-```text
+As we see, the `help` command in isolation lists all commands.
+It can also give help on a specific command; just append the command name.
+Help on `version` is nicely short:
+
+```
 >> help version
 SYNTAX: version
 - lists version of this application, its libraries and tools to build it
@@ -93,33 +135,21 @@ NOTES:
 - supports @-prefix to suppress output
 ```
 
-The help for the `osp` command is long; the help command allows  
-selecting a topic (sub command of `osp` in this case).
+The help for the `echo` command is longer; but the help command allows 
+selecting one "topic". Below the `wait` sub command of `echo` is explained.
 
-```text
->> help osp dirmux
-SYNTAX: osp dirmux [ bidir | loop ]
-- without optional argument shows the status of the direction mux
-- with optional argument sets the direction mux to bi-directional or loop
+```
+>> help echo wait
+SYNTAX: echo wait <time>
+- waits <time> ms (might be useful in scripts
 ```
 
-Let's try to run the `version` command.
+The command interpreter allows commands to be shortened (even to 
+one character). So `version`, `ver` and `v` all give the same result. 
+This also holds for sub commands, so `help version`, `help ver` and `help v` 
+all give the same result. The two abbreviations can be combined:
 
-```text
->> version
-app     : Application version example 1.5
-runtime : Arduino ESP32 2_0_14
-compiler: 8.4.0
-arduino : 10607 (likely IDE2.x)
-compiled: May  8 2024, 17:56:47
-aolibs  : result 0.1.2 spi 0.2.0 osp 0.1.5 cmd 0.1.1
 ```
-
-One feature of the command interpreter is that all commands and sub commands 
-may be shortened (even to one character), so the following shorthand `h v` 
-gives the same result as the previous `help version`.
-
-```text
 >> h v
 SYNTAX: version
 - lists version of this application, its libraries and tools to build it
@@ -127,21 +157,124 @@ NOTES:
 - supports @-prefix to suppress output
 ```
 
-Comment starts with `//`.
 Some commands support a `@` as prefix; it suppresses output of that command.
-For example, setting the direction mux, shows the final state, but that can be suppressed with the `@`.
+For example, setting the direction mux, gives feedback on the final state. 
+This can be suppressed by prepending the `@`. The fragment below illustrates 
+that, and it also shows that comments start with `//`.
 
-```text
+
+```
 >> // comment without command
 >> osp dirmux loop // shows new status
-mux (dir): loop
+dirmux: loop
 >> @osp dirmux loop // with @ no feedback on new status
 >>
 ```
 
-The `board` command gives some info on the ESP hardware.
+In the above command the `@` suppresses _all_ output, in other commands 
+the `@` only _reduces_ the output. For example, `help` on a command reduces 
+to only the section headers.
 
-```text
+```
+>> @help echo
+SYNTAX: echo [line] <word>...
+SYNTAX: echo faults [step]
+SYNTAX: echo [ enabled | disabled ]
+SYNTAX: echo wait <time>
+NOTES:
+```
+
+The command interpreter has a small local file system that can store a 
+single file `boot.cmd`. To create `boot.cmd` use the `file record` command, 
+and enter line after line, terminating with an empty line.
+
+```
+>> file record
+001>> echo Hello, world!
+002>> @version // short version
+003>> 
+file: 28 bytes written
+```
+
+Note that while the `boot.cmd` file is recorded, the prompt shows line 
+numbers (eg `001>>`).
+
+The file `boot.cmd` can be inspected,
+
+```
+>> file show
+file: 'boot.cmd' content:
+echo Hello, world!
+@version
+```
+
+and executed.
+
+```
+>> file exec
+>> echo Hello, world!
+Hello, world!
+>> @version
+SAIDbasic 2.4
+>> 
+```
+
+As the name suggests the file `boot.cmd` will be executed when the ESP32 
+(cold) boots (officially known as POR - power-on-reset). When we press 
+the reset (RST) button on OSP32, we see the script in action.
+
+```
+  ____   _____ _____    _ _       _
+ / __ \ / ____|  __ \  | (_)     | |
+| |  | | (___ | |__) | | |_ _ __ | | __
+| |  | |\___ \|  ___/  | | | '_ \| |/ /
+| |__| |____) | |      | | | | | |   <
+ \____/|_____/|_|      |_|_|_| |_|_|\_\
+OSPlink - version 1.7
+
+spi: init
+osp: init
+cmd: init
+mw: init
+ui32: init
+
+Running 'boot.cmd'
+>> echo Hello, world!
+Hello, world!
+>> @version
+OSPlink 1.7
+>> 
+
+Type 'help' for help
+>> 
+```
+
+In practice, `boot.cmd` is used to configure a demo. For example for
+[saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+could have the following lines in `boot.cmd` to configure the overall 
+brightness and to define the available flags.
+
+```
+topo dim 50
+apps conf swflag set  europe dutch italy mali
+```
+
+To erase the `boot.cmd`, give the `file record` command and immediately 
+terminate recording by entering an empty line (pressing CR).
+
+```
+>> file record
+001>> 
+file: 0 bytes written
+>> file show
+file: 'boot.cmd' empty
+>> 
+```
+
+
+The `board` command gives information on the ESP hardware.
+
+```
 >> board
 chip : model ESP32-S3 (2 cores) rev 0
 clk  : 240 MHz (xtal 40 MHz)
@@ -152,66 +285,131 @@ reset: power-on
 ```
 
 An interesting sub command, especially during development, is `board reboot`;
-it resets the ESP, and does not execute `boot.cmd`. In other words this 
-command invokes a clean restart of the ESP. Note however, that the OSP nodes 
-and the OLED remain powered, so they keep their state, unless the ESP 
-firmware resets them. 
+it resets the ESP. This is a software reset, not a power-on-reset, it
+does _not_ execute `boot.cmd`. In other words `reboot` invokes a clean 
+restart of the ESP. Note however, that the OSP nodes and the OLED remain 
+powered, so they keep their state, unless the ESP firmware resets them. 
 
 If `boot.cmd` is needed after `board reboot`, give command `file exec`.
 
-The key command of this library is the _osp_ command.
-It is able to enumerate which nodes are in the OSP chain.
+The commands presented until now (`echo`, `help`, `version`, `board`, `file`)
+are managerial. Now come the key commands: `osp` and `said`. They allow
+manipulating and inspecting OSP nodes.
 
-```text
+> The below fragments assume that a SAIDbasic board is connected to the 
+> OSP32 board in loop mode (cable from OSP32 OUT to SAIDbasic IN and a cable
+> from SAIDbasic OUT to OSP32 IN).
+>
+> The fragments also assume that no firmware is running that sends telegrams. 
+> The easiest way is to use a firmware that is "command interpreter only" like
+> [osplink](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink).
+> If you use a firmware that has _apps_ like 
+> [saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+> the apps continuously send telegrams and that has to be stopped first.
+> This can be done by activating the do-nothing app via the command `apps switch voidapp`.
+>
+> Some fragments assume `reset` and `init` telegrams (after setting the dirmux) 
+> have been sent (the `osp restinit` does all three).
+
+The `osp` command is able to enumerate which nodes are in the OSP chain.
+
+```
 >> osp enum
- mcu N001 00000040/SAID T0 T1 T2 lvds
-lvds N002 00000040/SAID T3 T4 T5 lvds
-lvds N003 00000040/SAID T6 T7 T8 lvds
-lvds N004 00000000/RGBI T9 lvds
-lvds N005 00000040/SAID T10 T11 I0 lvds
-lvds N006 00000000/RGBI T12 lvds
-lvds N007 00000000/RGBI T13 lvds
-lvds N008 00000000/RGBI T14 lvds
-lvds N009 00000040/SAID T15 T16 T17 eol
-nodes(N) 9 triplets(T) 18 i2cbridges(I) 1 dir loop
+ mcu N001 00000040/SAID T0 T1 I0 lvds
+lvds N002 00000040/SAID T2 T3 T4 lvds
+lvds N003 00000040/SAID T5 T6 T7 lvds
+lvds N004 00000000/RGBI T8 lvds
+lvds N005 00000040/SAID T9 T10 I1 lvds
+lvds N006 00000000/RGBI T11 lvds
+lvds N007 00000000/RGBI T12 lvds
+lvds N008 00000000/RGBI T13 lvds
+lvds N009 00000040/SAID T14 T15 T16 eol
+nodes(N) 1..9, triplets(T) 0..16, i2cbridges(I) 0..1, dir loop
+>> 
 ```
 
-The `osp` command has information on all (currently known) telegrams.
-This is retrieved with the `info` sub command.
+This shows there are 9 nodes, the first (`mcu`) and last (`eol`) both connected 
+to the ESP (`dir loop`). Nodes 001, 002, 003, 005 and 009 are SAIDs, the
+other 4 RGBIs. Two SAIDs (001 and 005) have an I2C bridge enabled (I0 and I1).
+In total there are 17 RGB triplets (4 RGBIs, 3 SAIDs with 3, 2 SAIDs with 2).
 
-```text
->> osp info setpwmchn
-TELEGRAM 4F: setpwmchn
-DESCRIPTION: Sets PWM for RGB (3x2 bytes), 7th byte is unused, 8th denotes 
-             the channel .
-CASTING    : uni multi broad 
-PAYLOAD    : 8 (chn unused red1 red0 grn1 grn0 blu1 blu0); no response
-STATUS REQ : no (tele 6F/setpwm_sr has sr)
-DUPLICATE  : 4F/setpwm 
+The `osp` command has information on all (currently known) telegrams ("user manual").
+This information is retrieved with the `info` sub command.
+
 ```
+>> osp info readpwmchn
+TELEGRAM 4E: readpwmchn
+DESCRIPTION: Returns current PWM setting (for all three LEDs) of the 
+             requested channel.
+CASTING    : uni 
+PAYLOAD    : 1 (chn); response 6 (red1 red0 grn1 grn0 blu1 blu0)
+STATUS REQ : no (no sr possible)
+DUPLICATE  : 4E/readpwm
+```
+
+This information explains (1st line) that `readpwmchn` has telegram id 0x4E, 
+and that it is sent using unicast (3rd line) not broadcast or serial cast 
+(those are never supported for telegrams that return some information).
+The description (2nd line) explains that the telegram returns RGB settings 
+for one channel. The 4th line shows the telegram payload bytes 
+in detail: the command telegram has 1 byte, the channel, the response 
+telegram has 6 bytes, two for each color. No status (line 5) will be 
+returned (several commands have as feature that the node acknowledges 
+with a status response); as this is not possible for telegrams that 
+return some information. Finally this identifies that there is a 
+telegram with the same ID but different behavior (in this case that is
+the very similar `readpwm` without a channel).
 
 There is a "high level" way to send OSP telegrams.
 The firmware will fill in the preamble, payload size indicator, telegram id and crc.
-The following high level command sequence switches on two RGBs.
+The following high level command sequence switches on two RGBs;
+the first (SAID 001 channel 0) to green, the second (SAID 2 channel 0)
+to blue. The info for `setpwmchn` explains the 8 bytes payload: 
+`chn unused red1 red0 grn1 grn0 blu1 blu0` (the reason for the unused byte FF
+is that OSP telegrams can have a length of 8 but not 7).
 
-Note, if an app is running it is wise to terminate it by switching to 
-do-nothing app with the command `app switch void`.
-
-```text
+```
 osp send 000 reset
 osp send 001 initbidir
 osp send 000 clrerror
 osp send 000 goactive
-osp send 001 setpwmchn 00 FF 00 00 11 11 00 00
-osp send 002 setpwmchn 00 FF 00 00 00 00 11 11
+osp send 001 setpwmchn 00  FF  00 00  11 11  00 00
+osp send 002 setpwmchn 00  FF  00 00  00 00  11 11
 ```
 
-There is also a "low level" way to send OSP telegrams.
-Here, the user has to enter all details 
-(there is a feature to get the CRC computed).
-This is especially useful for testing.
+This is the sequence in action.
 
-```text
+```
+>> osp dirmux bidir // ensure the mux matches the init (below)
+dirmux: bidir
+>>
+>> osp send 000 reset 
+tx A0 00 00 22
+rx none ok
+>> osp send 001 initbidir 
+tx A0 04 02 A9
+rx A0 25 02 6B 50 7F (230 us) ok
+>> osp send 000 clrerror 
+tx A0 00 01 0D
+rx none ok
+>> osp send 000 goactive 
+tx A0 00 05 B1
+rx none ok
+>> osp send 001 setpwmchn 00 FF 00 00 11 11 00 00 
+tx A0 07 CF 00 FF 00 00 11 11 00 00 49
+rx none ok
+>> osp send 002 setpwmchn 00 FF 00 00 00 00 11 11
+tx A0 0B CF 00 FF 00 00 00 00 11 11 5D
+rx none ok
+```
+
+The above "high level" command does show the raw bytes being transferred.
+There is also a "low level" way to send OSP telegrams. This is especially 
+useful for testing. For low level telegrams, the user has 
+to enter all details (all bytes); but there is a feature to get the CRC computed. 
+We can use the high level commands first to get those details.
+
+```
 osp tx A0 00 00 22 // 000 reset
 osp tx A0 04 02 A9 // 001 initbidir
 osp tx A0 00 01 0D // 000 clrerror
@@ -220,21 +418,21 @@ osp tx A0 07 CF 00 FF 00 00 11 11 00 00 49 // 001 setpwmchn 00 grn
 osp tx A0 0B CF 00 FF 00 00 00 00 11 11 5D // 002 setpwmchn 00 blu
 ```
 
-The fragment below shows the `osp` command in action, sending `02/initbidir` and receiving the answer.
-
-```text
->> osp trx A0 04 02 A9
-tx A0 04 02 A9
-rx A0 05 02 72 50 DA (53 us) ok
-```
-
 If commands are sent, they are validated (see `osp validate`).
-Even if validation fails, for example because the CRC doesn't match, or the payload doesn't match,
-the telegram is still sent. This allows for testing error behavior also.
+Even if validation fails, for example because the CRC doesn't match, 
+or the payload doesn't match, the telegram is still sent. 
+This allows for testing error behavior also.
 
-Note that a typical initialization sequence is as follows
-(and make sure to have something wired to the OSP32 board).
+Validation can be switched off (to make transfers faster) with `osp validate disable`.
+There are other managerial subcommands (`osp log` and `osp cound` and to
+some extend `osp hwtest`).
 
+A typical initialization sequence is as follows. 
+The broadcast (000) of the `reset` telegram resets all nodes;
+this also wipes there addresses. The serial cast of `initloop` reassigns
+addresses (starting at 001). Make sure the direction mux is configured
+to match the wiring of the demo board, and make sure the `initloop`/`initbidir`
+matches the direction mux.
 
 ```
 osp send 000 reset
@@ -258,12 +456,32 @@ osp resetinit
 
 which first tries Loop, and then BiDir (and also controls the dirmux).
 
+Some firmware variants contain the command `topo` which supports an even 
+higher abstraction in operating an OSP chain. It builds a data structure called 
+the _topology map_, which identifies how many RGB triplets there are (and 
+for each triplet if it is a stand-alone RGBI or an RGB module connected to 
+a SAID). The command `topo pwm` allows setting the color of a triplet,
+abstracting away if it is an RGBI or an RGB connected to a SAID.
+
+The below fragment switches RGB triplet 6 to red.
+It also sets the "global brightness" of the topo module 
+to 50‰ (actually "pro [kibi](https://en.wikipedia.org/wiki/Binary_prefix#kibi)").
+
+```
+>> topo build // includes resetinit
+nodes(N) 1..9, triplets(T) 0..16, i2cbridges(I) 0..1, dir loop
+>> topo dim 50
+dim 50/1024 (said 41x, rgbi 104x below max power)
+>> topo pwm 6 1111 0000 0000
+pwm T6: 1111 0000 0000
+```
+
 In addition to the generic `osp` command, there is the `said` command,
 with support specifically for the SAID chip.
-As an example of the `said` command, the fragment below scans the entire OSP chain
-for SAIDs, checks if the have an I2C bus, and if so, scans the I2C bus.
+The fragment below scans the entire OSP chain for SAIDs, 
+checks if they have an I2C bus, and if so, scans the I2C bus.
 
-```C++
+```
 >> said i2c 000 scan
 SAID 001 has I2C (now powered)
   00:  00  01  02  03  04  05  06  07  08  09  0a  0b  0c  0d  0e  0f 
@@ -271,7 +489,7 @@ SAID 001 has I2C (now powered)
   20:  20  21  22  23  24  25  26  27  28  29  2a  2b  2c  2d  2e  2f 
   30:  30  31  32  33  34  35  36  37  38  39  3a  3b  3c  3d  3e  3f 
   40:  40  41  42  43  44  45  46  47  48  49  4a  4b  4c  4d  4e  4f 
-  50: [50] 51  52  53  54  55  56  57  58  59  5a  5b  5c  5d  5e  5f 
+  50:  50  51  52  53 [54] 55  56  57  58  59  5a  5b  5c  5d  5e  5f 
   60:  60  61  62  63  64  65  66  67  68  69  6a  6b  6c  6d  6e  6f 
   70:  70  71  72  73  74  75  76  77  78  79  7a  7b  7c  7d  7e  7f 
 SAID 001 has 1 I2C devices
@@ -282,13 +500,38 @@ SAID 005 has I2C (now powered)
   20: [20] 21  22  23  24  25  26  27  28  29  2a  2b  2c  2d  2e  2f 
   30:  30  31  32  33  34  35  36  37  38  39  3a  3b  3c  3d  3e  3f 
   40:  40  41  42  43  44  45  46  47  48  49  4a  4b  4c  4d  4e  4f 
-  50: [50][51] 52  53  54  55  56  57  58  59  5a  5b  5c  5d  5e  5f 
+  50: [50] 51  52  53  54  55  56  57  58  59  5a  5b  5c  5d  5e  5f 
   60:  60  61  62  63  64  65  66  67  68  69  6a  6b  6c  6d  6e  6f 
   70:  70  71  72  73  74  75  76  77  78  79  7a  7b  7c  7d  7e  7f 
-SAID 005 has 3 I2C devices
+SAID 005 has 2 I2C devices
 
-2 SAIDs have 4 I2C devices
+total 2 SAIDs have 3 I2C devices
 >> 
+```
+
+The `@` version is much less verbose
+
+```
+>> @said i2c 000 scan
+[54] SAID 001 has 1 I2C devices
+[20][50] SAID 005 has 2 I2C devices
+total 2 SAIDs have 3 I2C devices
+```
+
+Another (advanced) feature is reading the OTP.
+
+```
+> said otp 001
+otp: 0x0D: 09 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+otp: CH_CLUSTERING     0D.7:5 0
+otp: HAPTIC_DRIVER     0D.4   0
+otp: SPI_MODE          0D.3   1
+otp: SYNC_PIN_EN       0D.2   0
+otp: STAR_NET_EN       0D.1   0
+otp: I2C_BRIDGE_EN     0D.0   1
+otp: *STAR_START       0E.7   0
+otp: OTP_ADDR_EN       0E.3   0
+otp: STAR_NET_OTP_ADDR 0E.2:0 0 (0x000)
 ```
 
 
@@ -322,14 +565,13 @@ File > Examples > OSP CommandInterpreter aocmd > ...
  
 There is also an official executable - as opposed to an example.
 
-- **osplink** ([source](../OSP_aotop/examples/osplink))  
+- **osplink** ([source](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink))  
   This application allows the PC (with a terminal like the Arduino Serial Monitor)
   to send and receive OSP telegrams, using serial-over-USB. 
   
   It even comes with an _experimental_ Python library [libosplink](python/libosplink) 
   and a Python application [exosplink](python/exosplink)
   
-
 
 ## Module architecture
 
@@ -580,6 +822,10 @@ batch file `run.bat`. See the respective `readme.md` for some details.
 
 
 ## Version history _aocmd_
+
+- **2024 sep 5, 0.5.2**
+  - Updated section "Example commands".
+  - More uniform error messages in command handlers "'xxx' expects 'yyy', not 'zzz'".
 
 - **2024 aug 28, 0.5.1**
   - Command `help <cmd>` now has topic selector.

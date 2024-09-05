@@ -328,7 +328,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
   // get <addr>
   uint16_t addr;
   if( !aocmd_cint_parse_hex(argv[2],&addr) || !AOOSP_ADDR_ISOK(addr) ) {
-    Serial.printf("ERROR: 'send' expected <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_GLOBALMIN,AOOSP_ADDR_GLOBALMAX,argv[2]);
+    Serial.printf("ERROR: 'send' expects <addr> %03X..%03X, not '%s'\n",AOOSP_ADDR_GLOBALMIN,AOOSP_ADDR_GLOBALMAX,argv[2]);
     return;
   }
 
@@ -365,7 +365,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
   for( int tix=3, aix=4; aix<argc; aix++, tix++ ) { // tix index in tx[], aix index in argv[]
     uint16_t data;
     bool ok= aocmd_cint_parse_hex(argv[aix],&data) ;
-    if( !ok || data>0xFF ) { Serial.printf("ERROR: 'send' expected <data> 00..FF, not '%s'\n",argv[aix]); return; }
+    if( !ok || data>0xFF ) { Serial.printf("ERROR: 'send' expects <data> 00..FF, not '%s'\n",argv[aix]); return; }
     tx[tix] = data;
   }
 
@@ -431,7 +431,7 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
     } else {
       uint16_t data;
       bool ok= aocmd_cint_parse_hex(argv[aix],&data) ;
-      if( !ok || data>0xFF ) { Serial.printf("ERROR: '%s' expected <data> 00..FF, not '%s'\n",argv[1], argv[aix]); return; }
+      if( !ok || data>0xFF ) { Serial.printf("ERROR: '%s' expects <data> 00..FF, not '%s'\n",argv[1], argv[aix]); return; }
       tx[tix] = data;
     }
   }
