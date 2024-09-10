@@ -34,11 +34,14 @@ HARDWARE
 The demo runs on the OSP32 board, no demo board needs to be attached.
 In Arduino select board "ESP32S3 Dev Module".
 
+BEHAVIOR
+No commands are given to change the LEDs (in the below example).
+
 OUTPUT
  _______                   _       _
 |__   __|                 | |     | |
    | | ___ _ __ ___  _ __ | | __ _| |_ ___
-   | |/ _ \ '_ ` _ \| '_ \| |/ _` | __/ _ `
+   | |/ _ \ '_ ` _ \| '_ \| |/ _` | __/ _ \
    | |  __/ | | | | | |_) | | (_| | ||  __/
    |_|\___|_| |_| |_| .__/|_|\__,_|\__\___|
                     | |
@@ -53,15 +56,13 @@ No 'boot.cmd' file available to execute
 Type 'help' for help
 >> version
 app     : Application template 2.2
-runtime : Arduino ESP32 3_0_2
+runtime : Arduino ESP32 3_0_3
 compiler: 12.2.0
 arduino : 10607 (likely IDE2.x)
-compiled: Jun 27 2024, 12:16:00
-aolibs  : result 0.1.10 spi 0.2.8 osp 0.2.3 cmd 0.4.3
-file    : ...\aocmd\examples\aocmd_template\aocmd_template.ino
->> @v
-Application template 2.2
->>
+compiled: Sep  6 2024, 16:38:13
+aolibs  : result 0.4.1 spi 0.5.1 osp 0.4.1 cmd 0.5.2
+file    : aocmd_template.ino
+>> 
 */
 
 
@@ -75,7 +76,7 @@ void aocmd_version_app() {
 // Library aocmd "upcalls" via aocmd_version_app() to allow the application to print extra version info
 // Implementing this function is optional.
 void aocmd_version_extra() {
-  Serial.printf( "file    : " __FILE__ "\n" ); // just a (silly) example
+  Serial.printf( "file    : %s\n", aoresult_shorten(__FILE__) ); // just a (silly) example
   // Serial.printf( "aolibs  : ui32 %s mw %s apps %s\n", AOUI32_VERSION, AOMW_VERSION, AOAPPS_VERSION);
 }
 

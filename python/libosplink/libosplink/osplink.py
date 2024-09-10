@@ -37,19 +37,21 @@ class OSPlink(CmdInt):
         fmt= fmt.replace("%t",gt.group(1))         # t ='Nov  2 2022, 14:01:11'        
         return fmt
     def boardreboot(self):
+        """Reboots the ESP32 (without running boot.cmd)"""
         self.exec(f"board reboot")
         self.exec(f"echo disabled") # this disables echo again AND has as side effect an rxbuf sync
     def osp_resetinit(self):
+        """Sends reset and init telegram (auto configure dirmux), returns (direction:string,nodecount:int)"""
         res = self.exec(f"osp resetinit")
         found = re.search(r"resetinit: (.*) (.*) \((.*)\)",res);
         if found.group(3)!="ok" : raise OSPlinkException(f"resetinit failed {found.group(3)}")
         return found.group(1), int(found.group(2),16)
-    def osp_clrerror(self) :
-        res = self.exec(f"@osp send 0 clrerror")
+    def osp_clrerror(self,addr) :
+        res = self.exec(f"@osp send {addr:X} clrerror")
         found = re.search(r"rx none (.*)",res);
         if found.group(1)!="ok" : raise OSPlinkException(f"clrerror failed {found.group(1)}")
-    def osp_goactive(self) :
-        res = self.exec(f"@osp send 0 goactive")
+    def osp_goactive(self,addr) :
+        res = self.exec(f"@osp send {addr:X} goactive")
         found = re.search(r"rx none (.*)",res);
         if found.group(1)!="ok" : raise OSPlinkException(f"goactive failed {found.group(1)}")
     def osp_setpwmchn(self,addr,chn,red,grn,blu) :
@@ -59,5 +61,5 @@ class OSPlink(CmdInt):
 
 
 if __name__ == "__main__":
-    print("this script is not intended to be run alone.")
+    print("this script is not intended to be run stand alone.")
 

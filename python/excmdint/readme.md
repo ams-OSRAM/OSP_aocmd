@@ -26,10 +26,26 @@ This application uses the following support files
 - `readme.md` this file.
 
 
+## Configuration
+
+- Make sure the (ESP on the) OSP32 board is flashed with the 
+  [osplink.ino](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink) 
+  sketch.
+
+- Connect an OSP chain to the OSP32 board (eg SAIDbasic in BiDir).
+
+- Connect the OSP32 board to the PC.
+
+- Open a cmd in `OSP_aocmd\python\excmdint`.
+
+- Run `setup.bat` (check the line `SET LOCATION=C:\programs\python311\`).
+
+
 ## Run
 
-The OSP32 board must be connected to the PC.
-A run should produce the following output.
+Once the project is configured, run the python app.
+We do this via the `run.bat`. 
+Make sure Arduino IDE (or any other app to blocks the COM port) is not running.
 
 ```
 scanning for COM ports...
@@ -46,6 +62,8 @@ logging
 see __cmdint.log
 Done
 ```
+
+Run `\OSP_aocmd\python\cleanall.bat` to remove all generated files.
 
 (end)
 

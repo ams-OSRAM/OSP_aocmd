@@ -67,6 +67,9 @@ also include most commands, but the included apps need to be stopped first
 otherwise their control of the OSP chain might interfere with the entered
 commands.
 
+
+#### General commands
+
 Once a terminal is connected and the OSP32 board is rebooted, we are greeted 
 with banner.
 
@@ -125,7 +128,7 @@ version - version of this application, its libraries and tools to build it
 
 As we see, the `help` command in isolation lists all commands.
 It can also give help on a specific command; just append the command name.
-Help on `version` is nicely short:
+Help on `version` is nicely short:
 
 ```
 >> help version
@@ -183,6 +186,8 @@ SYNTAX: echo [ enabled | disabled ]
 SYNTAX: echo wait <time>
 NOTES:
 ```
+
+#### Boot.cmd
 
 The command interpreter has a small local file system that can store a 
 single file `boot.cmd`. To create `boot.cmd` use the `file record` command, 
@@ -249,7 +254,7 @@ Type 'help' for help
 >> 
 ```
 
-In practice, `boot.cmd` is used to configure a demo. For example for
+In practice, `boot.cmd` is used to configure a demo. For example for
 [saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
 could have the following lines in `boot.cmd` to configure the overall 
 brightness and to define the available flags.
@@ -292,9 +297,11 @@ powered, so they keep their state, unless the ESP firmware resets them.
 
 If `boot.cmd` is needed after `board reboot`, give command `file exec`.
 
+#### OSP generic commands
+
 The commands presented until now (`echo`, `help`, `version`, `board`, `file`)
-are managerial. Now come the key commands: `osp` and `said`. They allow
-manipulating and inspecting OSP nodes.
+are managerial. The commands `osp` and `said` allow manipulating and 
+inspecting OSP nodes.
 
 > The below fragments assume that a SAIDbasic board is connected to the 
 > OSP32 board in loop mode (cable from OSP32 OUT to SAIDbasic IN and a cable
@@ -311,7 +318,8 @@ manipulating and inspecting OSP nodes.
 > Some fragments assume `reset` and `init` telegrams (after setting the dirmux) 
 > have been sent (the `osp restinit` does all three).
 
-The `osp` command is able to enumerate which nodes are in the OSP chain.
+The `osp` command is able to enumerate which nodes are in the OSP chain
+(and with that estimate the maximum power usage).
 
 ```
 >> osp enum
@@ -325,6 +333,8 @@ lvds N007 00000000/RGBI T12 lvds
 lvds N008 00000000/RGBI T13 lvds
 lvds N009 00000040/SAID T14 T15 T16 eol
 nodes(N) 1..9, triplets(T) 0..16, i2cbridges(I) 0..1, dir loop
+count rgbi 4 said 5
+maxpower 12x50mA + 15x48mA + 15x24mA + 9x24mA = 1.896A (9.480W)
 >> 
 ```
 
@@ -359,6 +369,8 @@ with a status response); as this is not possible for telegrams that
 return some information. Finally this identifies that there is a 
 telegram with the same ID but different behavior (in this case that is
 the very similar `readpwm` without a channel).
+
+#### High level OSP
 
 There is a "high level" way to send OSP telegrams.
 The firmware will fill in the preamble, payload size indicator, telegram id and crc.
@@ -402,6 +414,8 @@ rx none ok
 tx A0 0B CF 00 FF 00 00 00 00 11 11 5D
 rx none ok
 ```
+
+#### Low level OSP
 
 The above "high level" command does show the raw bytes being transferred.
 There is also a "low level" way to send OSP telegrams. This is especially 
@@ -456,6 +470,8 @@ osp resetinit
 
 which first tries Loop, and then BiDir (and also controls the dirmux).
 
+#### Topo for OSP
+
 Some firmware variants contain the command `topo` which supports an even 
 higher abstraction in operating an OSP chain. It builds a data structure called 
 the _topology map_, which identifies how many RGB triplets there are (and 
@@ -475,6 +491,8 @@ dim 50/1024 (said 41x, rgbi 104x below max power)
 >> topo pwm 6 1111 0000 0000
 pwm T6: 1111 0000 0000
 ```
+
+#### SAID I2C 
 
 In addition to the generic `osp` command, there is the `said` command,
 with support specifically for the SAID chip.
@@ -518,7 +536,35 @@ The `@` version is much less verbose
 total 2 SAIDs have 3 I2C devices
 ```
 
-Another (advanced) feature is reading the OTP.
+Both show that at address 001 there is a SAID with an I2C device with 
+address 54. That happens to be an (AT24C02C) EEPROM. Let's try to read
+8 bytes from address 80.
+
+```
+>> said i2c 001 read 54 80 8
+said(001).i2c.dev(54).reg(80) FF FF FF FF FF FF FF FF
+```
+
+All bytes are FF. We change the middle four to "DEADBEEF". 
+
+```
+>> said i2c 001 write 54 82 DE AD BE EF
+said(001).i2c.dev(54).reg(82) DE AD BE EF
+>> said i2c 001 read 54 80 8
+said(001).i2c.dev(54).reg(80) FF FF DE AD BE EF FF FF
+```
+
+And we restore that (using `@` for reduced output)
+
+```
+>> @said i2c 001 write 54 82 FF FF FF FF
+>> @said i2c 001 read 54 80 8
+FF FF FF FF FF FF FF FF
+```
+
+#### SAID OTP 
+
+Another (advanced) feature of the `said` command is reading the OTP.
 
 ```
 > said otp 001
@@ -823,6 +869,16 @@ batch file `run.bat`. See the respective `readme.md` for some details.
 
 ## Version history _aocmd_
 
+- **2024 sep 10, 0.5.3**
+  - Added I2C read and write commands `said i2c <addr> read|write` and updated `readme.md`.
+  - Added I2C frequency control `said i2c <addr> freq [<freq>]`.
+  - Added arguments to functions in `osplink.py` and `exosplink.py`.
+  - Extra top-level readme for `python`, and update of deeper Python readme's.
+  - Added power estimate to `osp enum`.
+  - Shortened filename in `aocmd_template.ino`.
+  - Updated description of examples (BEHAVIOR section).
+  - Some `DC3` chars removed from `readme.md`.
+  
 - **2024 sep 5, 0.5.2**
   - Updated section "Example commands".
   - More uniform error messages in command handlers "'xxx' expects 'yyy', not 'zzz'".

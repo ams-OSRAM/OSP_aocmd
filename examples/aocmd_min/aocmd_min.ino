@@ -34,6 +34,9 @@ HARDWARE
 The demo runs on the OSP32 board, no demo board needs to be attached.
 In Arduino select board "ESP32S3 Dev Module".
 
+BEHAVIOR
+No commands are given to change the LEDs (in the below example).
+
 OUTPUT
 Welcome to aocmd_min.ino
 spi: init
@@ -43,8 +46,13 @@ cmd: init
 Type 'help' for help
 >> help
 Available commands
+board - board info and commands
 echo - echo a message (or en/disables echoing)
+file - manages the file 'boot.cmd' with commands run at startup
 help - gives help (try 'help help')
+osp - sends and receives OSP telegrams
+said - sends and receives SAID specific telegrams
+version - version of this application, its libraries and tools to build it
 >> echo Hello, world!
 Hello, world!
 >> @echo wait 5000
@@ -53,8 +61,11 @@ ERROR: command 'foo' not found (try help)
 >> help help
 SYNTAX: help
 - lists all commands
-SYNTAX: help <cmd>
+SYNTAX: help <cmd> [ <topic> ]
 - gives detailed help on command <cmd>
+- with <topic> show subset where section header contains <topic>
+NOTES:
+- supports @-prefix to suppress output
 NOTES:
 - all commands may be shortened, for example 'help', 'hel', 'he', 'h'
 - all sub commands may be shortened, for example 'help help' to 'help h'

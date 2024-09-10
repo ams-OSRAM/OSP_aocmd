@@ -34,23 +34,29 @@ HARDWARE
 The demo runs on the OSP32 board, no demo board needs to be attached.
 In Arduino select board "ESP32S3 Dev Module".
 
+BEHAVIOR
+No commands are given to change the LEDs (in the below example).
+
+
 OUTPUT
 Welcome to aocmd_boot.ino
 spi: init
 osp: init
 cmd: init
 
-no 'boot.cmd' file available to execute
+No 'boot.cmd' file available to execute
 Type 'help' for help
 Try 'wait 5000'
->> message (wait=30000 ms)
+>> 
 message (wait=30000 ms)
 message (wait=30000 ms)
-file record
+message (wait=30000 ms)
+>> file record
 001>> echo New wait
 002>> wait 10000
 003>> 
 file: 25 bytes written
+>> 
 >> board reboot
 
 ... software triggered reboot ...
@@ -65,14 +71,14 @@ Type 'help' for help
 Try 'wait 5000'
 >> 
 
-... pressed reset button ...
+... pressed RST button ...
 
 Welcome to aocmd_boot.ino
 spi: init
 osp: init
 cmd: init
 
-running 'boot.cmd'
+Running 'boot.cmd'
 >> echo New wait
 New wait
 >> wait 10000
@@ -80,7 +86,8 @@ New wait
 
 Type 'help' for help
 Try 'wait 5000'
->> message (wait=10000 ms)
+>>
+message (wait=10000 ms)
 message (wait=10000 ms)
 message (wait=10000 ms)
 */

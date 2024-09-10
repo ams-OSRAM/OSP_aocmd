@@ -33,6 +33,9 @@ HARDWARE
 The demo runs on the OSP32 board, no demo board needs to be attached.
 In Arduino select board "ESP32S3 Dev Module".
 
+BEHAVIOR
+No commands are given to change the LEDs (in the below example).
+
 OUTPUT
 Welcome to aocmd_owncmd.ino
 spi: init
@@ -41,11 +44,6 @@ cmd: init
 
 Type 'help' for help
 Try 'stat 1 2 3' and 'stat show'
->> help
-Available commands
-echo - echo a message (or en/disables echoing)
-help - gives help (try 'help help')
-stat - compute count, sum and average of hex numbers
 >> help stat
 SYNTAX: stat reset
 - resets the statistics counters

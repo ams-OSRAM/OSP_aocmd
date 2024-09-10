@@ -17,26 +17,27 @@ def main():
     #v= osplink.version()
     #print(f"  {v}")
 
-    print("resetinit")
+    osplink.logstart()
+
     dirmux,last= osplink.osp_resetinit()
-    print(f"  {dirmux}")
-    print(f"  {last}")
+    print( f"resetinit() -> dirmux={dirmux} last={last}" )
 
-    print("clrerror")
-    osplink.osp_clrerror()
+    osplink.osp_clrerror(0x000)
+    print("clrerror(0x000)")
 
-    print("goactive")
-    osplink.osp_goactive()
+    osplink.osp_goactive(0x000)
+    print("goactive(0x000)")
 
-    for i in range(100):
-        print("setpwmchn(red)")
+    for i in range(5):
+        print( f"round {i}")
         osplink.osp_setpwmchn(0x001,0,0x3333,0x0000,0x0000)
+        print( " setpwmchn(0x001,red)" )
         time.sleep(0.1)
-        print("setpwmchn(grn)")
         osplink.osp_setpwmchn(0x001,0,0x0000,0x3333,0x0000)
+        print( " setpwmchn(0x001,grn)" )
         time.sleep(0.1)
-        print("setpwmchn(blue)")
         osplink.osp_setpwmchn(0x001,0,0x0000,0x0000,0x3333)
+        print( " setpwmchn(0x001,blue)" )
         time.sleep(0.1)
     
     osplink.close()

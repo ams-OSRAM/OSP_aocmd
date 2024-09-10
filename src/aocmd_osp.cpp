@@ -527,6 +527,8 @@ static void aocmd_osp_enum( int argc, char * argv[] ) {
   // Scan all OSP nodes
   int triplets=0;
   int i2cbridges=0;
+  int num_rgbi=0;
+  int num_said=0;
   for( int addr=1; addr<=last; addr++ ) {
     // Print sio1 comm
     uint8_t  com;
@@ -540,6 +542,7 @@ static void aocmd_osp_enum( int argc, char * argv[] ) {
     Serial.printf(" N%03X %08lX",addr,id);
     // Print name
     if( AOOSP_IDENTIFY_IS_SAID(id) ) {
+      num_said++;
       Serial.printf("/SAID T%d T%d", triplets, triplets+1);
       // Is this SAID having I2C bridge enabled?
       int enable;
@@ -554,6 +557,7 @@ static void aocmd_osp_enum( int argc, char * argv[] ) {
         triplets+=3;
       }
     } else if( AOOSP_IDENTIFY_IS_RGBI(id) ) {
+      num_rgbi++;
       Serial.printf("/RGBI T%d", triplets);
       triplets += 1;
     } else {
@@ -570,6 +574,17 @@ static void aocmd_osp_enum( int argc, char * argv[] ) {
   else
     Serial.printf("i2cbridges(I) 0..%d, ", i2cbridges-1 );
   Serial.printf("dir %s\n", loop?"loop":"bidir");
+  // Print count summary
+  Serial.printf("count rgbi %d said %d\n", num_rgbi, num_said);
+  // Print power summary
+  int said_50mA= num_rgbi*3;
+  int said_ch0_48mA= num_said*3;
+  int said_ch1_24mA= num_said*3;
+  int said_ch2_24mA= (num_said-i2cbridges)*3;
+  int cur_mA= said_50mA*50 + said_ch0_48mA*48 + said_ch1_24mA*24 + said_ch2_24mA*24;
+  Serial.printf("maxpower %dx50mA + %dx48mA + %dx24mA + %dx24mA = %.3fA (%.3fW)\n", 
+    said_50mA, said_ch0_48mA, said_ch1_24mA , said_ch2_24mA,
+    cur_mA/1000.0, 5.0*cur_mA/1000.0);
 }
 
 
