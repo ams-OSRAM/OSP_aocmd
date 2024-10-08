@@ -1,6 +1,6 @@
 # excmdint
 
-Example for command interpreter.
+Example for the command interpreter.
 
 
 ## Introduction
@@ -29,7 +29,7 @@ This application uses the following support files
 ## Configuration
 
 - Make sure the (ESP on the) OSP32 board is flashed with the 
-  [osplink.ino](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink) 
+  [osplink.ino](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink) 
   sketch.
 
 - Connect an OSP chain to the OSP32 board (eg SAIDbasic in BiDir).
@@ -63,7 +63,7 @@ see __cmdint.log
 Done
 ```
 
-Run `\OSP_aocmd\python\cleanall.bat` to remove all generated files.
+Run `OSP_aocmd\python\cleanall.bat` to remove all generated files.
 
 (end)
 

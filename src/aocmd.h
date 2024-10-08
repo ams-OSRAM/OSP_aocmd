@@ -23,7 +23,7 @@
 
 
 // Identifies lib version
-#define AOCMD_VERSION "0.5.3"
+#define AOCMD_VERSION "0.5.4"
 
 
 // Include the (headers of the) modules of this app

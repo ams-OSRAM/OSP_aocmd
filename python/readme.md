@@ -10,18 +10,18 @@ This is still a proof-of-concept in an experimental phase.
 The experiment in this directory consists of the following ingredients.
 
 - OSP32 board with the ESP32 flashed with the
-  [osplink.ino](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink)
+  [osplink.ino](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink)
   firmware.
 
 - An experimental Python library [**lib**osplink](libosplink). It contains
-  two parts: `cmdint.py` interacts with the command interpreter in the ESP 
-  (sending and receiving strings over serial), and `osplink.py` makes the
-  ESP commands available on high level in Python.
+  two modules: `cmdint.py` interacts with the command interpreter in the ESP 
+  (sending and receiving strings over serial), and module `osplink.py` makes 
+  the ESP commands available on high level in Python.
   
   For example the python function `osp_goactive(<addr>)` in the Python lib 
   `libosplink.osplink` uses the Python lib `libosplink.cmdint` to send the 
-  string `osp send <addr> goactive` over serial. The command interpreter in 
-  the ESP would receive that string and call the c function 
+  string `"osp send <addr> goactive"` over serial. The command interpreter in 
+  the ESP would receive that string and call the C function 
   `aoosp_tele_goactive(<addr>)`.
 
 - A simple Python example [**ex**cmdint](excmdint).
@@ -40,9 +40,9 @@ The experiment in this directory consists of the following ingredients.
 
 Try one of the two examples 
 
-- command interpreter example [excmdint](excmdint/readme.md) 
+- command interpreter example [excmdint](excmdint);
 
-- osplink example [excmdint](exosplink/readme.md) 
+- osplink example [exosplink](exosplink).
 
 
 (end)

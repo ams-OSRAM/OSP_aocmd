@@ -5,7 +5,7 @@ is one of the **aolibs**; short for Arduino OSP libraries from ams-OSRAM.
 This suite implements support for chips that use the Open System Protocol, 
 like the AS1163 ("SAID") or the OSIRE E3731i ("RGBi").
 The landing page for the _aolibs_ is on 
-[GitHub](https://github.com/ams-OSRAM-Group/OSP_aotop).
+[GitHub](https://github.com/ams-OSRAM/OSP_aotop).
 
 
 ## Introduction
@@ -61,8 +61,8 @@ add your own, and for example the _aomw_ and _aoapps_ libraries add
 (more high-level) commands. This does mean that it depend on the firmware 
 flashed to the ESP32 which commands are available. To follow the below 
 command fragments it is suggested to use the firmware
-[osplink](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink).
-Others, like [saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+[osplink](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink).
+Others, like [saidbasic](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/saidbasic)
 also include most commands, but the included apps need to be stopped first
 otherwise their control of the OSP chain might interfere with the entered
 commands.
@@ -71,7 +71,7 @@ commands.
 #### General commands
 
 Once a terminal is connected and the OSP32 board is rebooted, we are greeted 
-with banner.
+with a banner.
 
 ```
   ____   _____ _____    _ _       _
@@ -255,13 +255,15 @@ Type 'help' for help
 ```
 
 In practice, `boot.cmd` is used to configure a demo. For example for
-[saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+[saidbasic](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/saidbasic)
 could have the following lines in `boot.cmd` to configure the overall 
-brightness and to define the available flags.
+brightness and to define the available flags. Note the `@` symbols; they 
+suppress output, which makes sense in a command file.
+
 
 ```
-topo dim 50
-apps conf swflag set  europe dutch italy mali
+@topo dim 50
+@apps conf swflag set  europe dutch italy mali
 ```
 
 To erase the `boot.cmd`, give the `file record` command and immediately 
@@ -309,9 +311,9 @@ inspecting OSP nodes.
 >
 > The fragments also assume that no firmware is running that sends telegrams. 
 > The easiest way is to use a firmware that is "command interpreter only" like
-> [osplink](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink).
+> [osplink](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink).
 > If you use a firmware that has _apps_ like 
-> [saidbasic](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/saidbasic)
+> [saidbasic](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/saidbasic)
 > the apps continuously send telegrams and that has to be stopped first.
 > This can be done by activating the do-nothing app via the command `apps switch voidapp`.
 >
@@ -611,7 +613,7 @@ File > Examples > OSP CommandInterpreter aocmd > ...
  
 There is also an official executable - as opposed to an example.
 
-- **osplink** ([source](https://github.com/ams-OSRAM-Group/OSP_aotop/tree/main/examples/osplink))  
+- **osplink** ([source](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink))  
   This application allows the PC (with a terminal like the Arduino Serial Monitor)
   to send and receive OSP telegrams, using serial-over-USB. 
   
@@ -623,7 +625,7 @@ There is also an official executable - as opposed to an example.
 
 This library contains several modules, see the figure below for an overview (arrows indicate `#include`).
 
-![Modules](extras/modules.drawio.png)
+![Modules](extras/aocmd-modules.drawio.png)
 
 - **aocmd_cint** (`aocmd_cint.cpp` and `aocmd_cint.h`) is the core module 
   of the library; it implements the command interpreter. 
@@ -664,7 +666,7 @@ This library contains several modules, see the figure below for an overview (arr
 
 - **aocmd_file** (`aocmd_file.cpp` and `aocmd_file.h`) is a generic command that manages
   one file (`boot.cmd`) stored in a simple persistent file system (EEPROM of ESP, max 2k byte).
-  The crux of `boot.cmd` is that it runs on power-on, so it can be used to configure and
+  The crux of `boot.cmd` is that it runs on power-on, so it can be used to configure an
   application.
 
 - **aocmd_osp** (`aocmd_osp.cpp` with `aocmd_osp.i`, and `aocmd_osp.h`) is the core command to support the OSP
@@ -676,14 +678,15 @@ This library contains several modules, see the figure below for an overview (arr
   telegrams. The `send` command is high level; the preamble, payload size, telegram id, crc
   are supplied automatically. The `tx` is low level, all bytes have to be hand composed.
   Both commands allow sending miss-formed telegrams (`tx` even more so than `send`). This
-  allows checking error handling behavior, and border cases.
+  allows checking error handling behavior and border cases.
   
   The file `aocmd_osp.i` contains a table of all know telegrams. It is used to select
-  telegrams by name, and also to validate the other fields of the telegrams, like
-  payload size.
+  telegrams by name, provide info on telegrams, and to validate the fields of telegrams, 
+  like the payload size.
   
-- **aocmd_said** (`aocmd_said.cpp` and `aocmd_said.h`) command is for specific SAID features
-  like OTP and I2C.
+- **aocmd_said** (`aocmd_said.cpp` and `aocmd_said.h`) command is for specific 
+  SAID features. For example it supports sub commands to read and write 
+  OTP memory and I2C messages.
 
 
 ## API
@@ -699,27 +702,30 @@ It includes the module headers
 [aocmd_osp.h](src/aocmd_osp.h), and
 [aocmd_said.h](src/aocmd_said.h).
 
-The headers (h files) contain little documentation; for details see the module sources (cpp files). 
+The headers (h files) contain little documentation; for details see the 
+module sources (cpp files). 
 
 
 ### aocmd
 
 - `aocmd_init()` initializes the library (command interpreter and file system).
 - `AOCMD_VERSION`  identifies the version of the library.
-- `aocmd_register()` registers all commands from this library - a shorthand for calling the 
-  register of all commands contained in the library individually.
+- `aocmd_register()` registers all commands from this library - a shorthand 
+  for calling the register of all commands contained in the library individually.
 
 
 ### aocmd_cint
 
-This module is recycled from the public domain. The header file contains one-line explanations of each
-function. Here we will just give a high level overview.
+This module is recycled from the public domain. The header file contains 
+one-line explanations of each function. Here we will just give a high level 
+overview.
 
-- There are several macros `AOCMD_CINT_XXX` which configure the "size" of the command interpreter, 
-  like the maximum number of registered commands or the maximum length of a command line.
+- There are several macros `AOCMD_CINT_XXX` which configure the "size" of the 
+  command interpreter, like the maximum number of registered commands or the 
+  maximum length of a command line.
 
 - For applications _using_ a command line the key functions (after `aocmd_init()`) 
-  are `aocmd_cint_prompt` and `aocmd_cint_pollserial`.
+  are `aocmd_cint_prompt()` and `aocmd_cint_pollserial()`.
   
   ```c++
   void setup() {
@@ -747,32 +753,35 @@ function. Here we will just give a high level overview.
 
 ### aocmd_echo, aocmd_help, aocmd_board, aocmd_version, aocmd_file, aocmd_osp, aocmd_said
 
-All these modules have a function, to register the command. We explain "echo" only.
+All these modules have a function to register the command. We take "echo" 
+as example.
 
 - `aocmd_echo_register()` registers the built-in "echo" command with the command interpreter.
 
 Recall that `aocmd_register()` calls all register functions in this library.
 So, either call that one, or call a subset of `aocmd_xxx_register()`.
 
-Some of the modules require initialization like `aocmd_file_init()` and `aocmd_osp_init()`.
-This initializes the file system, respectively telegram parser, but these are called from `aocmd_init()`,
-so normal client code does not need to call any of the initialization functions.
+Some of the modules require initialization like `aocmd_file_init()` and 
+`aocmd_osp_init()`. This initializes the file system, respectively telegram 
+parser, but these inits are called from `aocmd_init()`, so normal client code 
+does not need to call any of them.
 
 
 ### aocmd_version
 
-In addition to `aocmd_version_register()`, there are two weak upcalls 
-from the `version` command handler.
+In addition to `aocmd_version_register()`, there are two other public
+functions. These are so-called weak upcalls from the `version` command handler.
 
 - **weak** `aocmd_version_app()`; it shall print to Serial the application name and version.
 - **weak** `aocmd_version_extra()`; it may print to Serial additional ingredients with name and version.
 
 "Weak" means that an application can re-implement those functions 
 (using the exact same name), and those re-implementations take precedence 
-over these weak implementations.
+over these weak implementations. For details see the section
+[Upcalls via weak linking](#upcalls-via-weak-linking) below.
 
-The default implementation is printing a stub line respectively printing 
-nothing.
+The default implementation of the two functions is printing a stub line 
+respectively printing nothing. 
 
 
 ### aocmd_file
@@ -845,31 +854,40 @@ prints to Serial the application name and version.
 The second function is empty; it may be replaced by am application specific function 
 that prints to Serial additional ingredients with name and version.
 
+The diagram below explains the behavior of the compiler and the resulting 
+call graph.
+
 ![Weak upcall](extras/upcall-weak.png)
 
 
 
 ## Python (experimental)
 
-The [execs](../../execs) directory contains an Arduino sketch `osplink`.
+The examples directory of _aotop_ contains an Arduino sketch 
+[osplink.ino](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink).
 This is an application, that contains just the command interpreter, 
 and with that the commands to send and receive telegrams.
 
-The directory [python](python) in `aocmd` contains a one Python library 
-(`libosplink`). This library has one object that can communicate to any 
-command interpreter (`cmdint`), and one object that can communicate to 
-the command interpreter as implemented in the Arduino `osplink` sketch.
+The directory `python` in _aocmd_ contains a Python library 
+(`libosplink`). This library has one object (`CmdInt` in module `cmdint.py`) 
+that can communicate with any command interpreter, and one object 
+(`OSPlink` in module `osplink.py`) that can communicate to the command 
+interpreter as implemented in the Arduino `osplink` sketch.
 
-The directory [python](python) in `aocmd` also contains two Python examples 
-(`excmdint` and `exosplink`) that demonstrate how to use those objects. 
-Both Python examples make use of a Python virtual environment. Start a 
-windows `cmd.exe` shall, run the batch file `setup.bat`, and then run the 
-batch file `run.bat`. See the respective `readme.md` for some details.
+The directory `python` also contains two Python examples,
+one for each module, that demonstrate how to use those objects. 
+See the [readme](python) for instructions. Note that the Python
+library is an experimental proof-of-concept.
 
 
 ## Version history _aocmd_
 
-- **2024 sep 10, 0.5.3**
+- **2024 October 8, 0.5.4**
+  - Prefixed `modules.drawio.png` with library short name.
+  - Moved domain from `github.com/ams-OSRAM-Group` to `github.com/ams-OSRAM`.
+  - Updated readme's for Python.
+  
+- **2024 September 10, 0.5.3**
   - Added I2C read and write commands `said i2c <addr> read|write` and updated `readme.md`.
   - Added I2C frequency control `said i2c <addr> freq [<freq>]`.
   - Added arguments to functions in `osplink.py` and `exosplink.py`.
@@ -879,11 +897,11 @@ batch file `run.bat`. See the respective `readme.md` for some details.
   - Updated description of examples (BEHAVIOR section).
   - Some `DC3` chars removed from `readme.md`.
   
-- **2024 sep 5, 0.5.2**
+- **2024 August 5, 0.5.2**
   - Updated section "Example commands".
   - More uniform error messages in command handlers "'xxx' expects 'yyy', not 'zzz'".
 
-- **2024 aug 28, 0.5.1**
+- **2024 August 28, 0.5.1**
   - Command `help <cmd>` now has topic selector.
   - Commands `help` and `said` now support prefix-@ to suppress output.
   - Command `osp` now prints round trip time.
@@ -893,7 +911,7 @@ batch file `run.bat`. See the respective `readme.md` for some details.
   - Commands `osp send`, `osp tx`, and `osp trx` validate initloop/bidir telegrams against dirmux state.
   - Updates to `readme.md` and `system.drawio.png`.
   
-- **2024 aug 9, 0.5.0**  
+- **2024 August 9, 0.5.0**  
   - Added comment on `F()` and `PSTR()`; `aocm_board` being ESP32S3 specific and `boot.cmd` being 2k max.
   - Removed `docname` (aka old name or datasheet name) in `aocmd_osp.cpp`/`aocmd_osp.i`.
   - Corrected link to GitHub from aotop to OSP_aotop.
@@ -905,7 +923,7 @@ batch file `run.bat`. See the respective `readme.md` for some details.
   - Command `osp enum` now has summary formatted the same as `topo enum`.
   - `license.txt` line endings changed from LF to CR+LF.
 
-- **2024 Jul 02, 0.4.4**  
+- **2024 July 02, 0.4.4**  
   - Initial release candidate.
 
 
