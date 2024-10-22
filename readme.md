@@ -882,6 +882,11 @@ library is an experimental proof-of-concept.
 
 ## Version history _aocmd_
 
+- **2024 October 22, 0.5.5**
+  - Added command `osp aoresult [ <filter> ]` to show errors (nr/id/description).
+  - Added command `osp fields <data>...`, similar to python dissector.
+  - Fixed typos in python `readme.md`s.
+  
 - **2024 October 8, 0.5.4**
   - Prefixed `modules.drawio.png` with library short name.
   - Moved domain from `github.com/ams-OSRAM-Group` to `github.com/ams-OSRAM`.

@@ -18,9 +18,9 @@ This application uses the following support files
 
 - `setup.bat` first file to run, sets up a virtual Python environment.
   You might need to tweak the line that sets the `LOCATION` of the python executable.
-- `requirements.txt` is used by `setyp.bat` to install packages.
+- `requirements.txt` is used by `setup.bat` to install packages.
   In this case, the file contains the serial port library and the libosplink.
-- `run.bat` actually runs excmdint.
+- `run.bat` actually runs `excmdint.py`.
 - `excmdint.py` the script started by `run.bat`.
 - `clean.bat` deletes the virtual environment.
 - `readme.md` this file.

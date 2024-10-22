@@ -421,10 +421,178 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
 }
 
 
+// Returns true iff `cur` is in a new section when compared to `prv`
+// by looking at the prefix.
+static int aocmd_osp_aoresult_newsection(const char * prv, const char * cur) {
+  char * s=strchr(cur,'_');
+  if( s==NULL ) return 0; // cur has no prefix so part of "gen", which is in the first section
+  if( strncmp(prv,cur,s-cur)==0 ) return 0; // cur has same prefix as prv
+  return 1;
+}
+
+
+// List all aoresult errors whose (short) name includes `filter`.
+// If `verbose` also lists description.
+static void aocmd_osp_aoresult_list(const char * filter, int verbose ) {
+  const char * prv = "";
+  for( int i=0; i<aoresult_numresultcodes; i++ ) {
+    aoresult_t result = (aoresult_t)i;
+    const char * cur = aoresult_to_str(result);
+    if( strstr(cur,filter) ) {
+      if( *filter=='\0' && aocmd_osp_aoresult_newsection(prv,cur) ) Serial.printf("\n"); 
+      Serial.printf("%3d %-16s", result, aoresult_to_str(result) );
+      if( verbose ) Serial.printf("%s", aoresult_to_str(result,1) );
+      Serial.printf("\n" );
+      prv= cur;
+    }
+  }
+}
+
+
+// Parse 'osp aoresult [ <filter> ]'
+static void aocmd_osp_aoresult( int argc, char * argv[] ) {
+  if( argc==2 ) {
+    aocmd_osp_aoresult_list("",argv[0][0]!='@');
+  } else if( argc==3 ) {
+    const char * filter;
+    int val;
+    bool ok= aocmd_cint_parse_dec(argv[2],&val) ;
+    if( ok ) { 
+      // <filter> is number, is it in aoresult range?
+      if( val<0 || val >=aoresult_numresultcodes ) { Serial.printf("ERROR: <result> out of range (0..%d)\n",aoresult_numresultcodes-1); return; }
+      // filter out the selected error
+      filter= aoresult_to_str( (aoresult_t)val );
+    } else {
+      // not a number, filter on the entered string
+      filter= argv[2];
+    }
+    aocmd_osp_aoresult_list( filter, argv[0][0]!='@' );
+  } else {
+    Serial.printf("ERROR: 'aoresult' has too many args\n");
+  }
+}
+
+
+// Parse 'osp fields <data>...'
+static void aocmd_osp_fields( int argc, char * argv[] ) {
+  uint8_t data[AOSPI_TELE_MAXSIZE];
+
+  // get sizes
+  int telesize = argc-2;
+  if( telesize> AOSPI_TELE_MAXSIZE ) { Serial.printf("ERROR: too many <data> (max %d)\n",AOSPI_TELE_MAXSIZE); return; }
+
+  int payloadsize = telesize-4;
+  if( payloadsize<0 ) { Serial.printf("ERROR: too few <data> (min 4)\n"); return; }
+  
+  // Parse bytes
+  for( int tix=0, aix=2; aix<argc; aix++, tix++ ) { // tix index in data[], aix index in argv[]
+    uint16_t val;
+    bool ok= aocmd_cint_parse_hex(argv[aix],&val) ;
+    if( !ok || val>0xFF ) { Serial.printf("ERROR: '%s' expects <data> 00..FF, not '%s'\n",argv[1], argv[aix]); return; }
+    data[tix] = val;
+  }
+
+  // Print input bytes
+  if( argv[0][0]!='@' ) {
+    for( int i=0; i<telesize; i++ ) Serial.printf("+---------------");
+    Serial.printf("+\n");
+    
+    for( int i=0; i<telesize; i++ ) Serial.printf("|      %02X       ",data[i]);
+    Serial.printf("|\n");
+    
+    for( int i=0; i<telesize; i++ ) {
+      char sep='|';
+      for( int b=1<<7; b!=0; b>>=1,sep=' ' ) Serial.printf("%c%d", sep, (data[i]&b)!=0 );
+    }
+    Serial.printf("|\n");
+    
+    Serial.printf("+-------+-------+-----------+---+-+-------------");
+  } else {
+    Serial.printf("+-------+-------------------+-----+-------------");
+  }
+  
+  // Print field names
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("+---------------");
+  Serial.printf("+---------------");
+  Serial.printf("+\n");
+  
+  Serial.printf("|preambl|      address      | psi |   command   ");
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("|    payload    ");
+  Serial.printf("|      crc      ");
+  Serial.printf("|\n");
+  
+  Serial.printf("+-------+-------------------+-----+-------------");
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("+---------------");
+  Serial.printf("+---------------");
+  Serial.printf("+\n");
+
+  // Print field hex
+  int preamble = BITS_SLICE(data[0],4,8);
+  int address = BITS_SLICE(data[0],0,4)<<6 | BITS_SLICE(data[1],2,8);
+  int psi = BITS_SLICE(data[1],0,2)<<1 | BITS_SLICE(data[2],7,8);
+  int tid= BITS_SLICE(data[2],0,7);
+  int crc= data[telesize-1];
+  int crc2=aoosp_crc(data,telesize-1); 
+
+  Serial.printf("|  0x%1X  ",preamble);
+  Serial.printf("|       0x%03X       ",address);
+  Serial.printf("| 0x%1X ",psi);
+  Serial.printf("|    0x%02X     ",tid);
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("|     0x%02X      ",data[3+i]);
+  if( crc==crc2) Serial.printf("|   0x%02X (ok)   ",crc);
+  else Serial.printf("|0x%02X (ERR) 0x%02X",crc,crc2);
+  Serial.printf("|\n");
+  
+  // Print field meaning
+  #define BUFSIZE 13
+  char command_buf[BUFSIZE]; // column is 13 chars wide, but we use only 12 (13th for "num variants")
+  if( aocmd_osp_tidmap[tid].num==0 ) {
+    // tid has no variant associated to it
+    strncpy(command_buf,"unknown",BUFSIZE);
+  } else {
+    // get name of first variant
+    strncpy(command_buf,aocmd_osp_variant[aocmd_osp_tidmap[tid].vix].swname,BUFSIZE);
+    // add * when too long
+    if( command_buf[BUFSIZE-1]!='\0' ) { command_buf[BUFSIZE-2]='*'; command_buf[BUFSIZE-1]='\0'; }
+  }
+  int command_len = strlen(command_buf);
+  
+  Serial.printf("|   -   ");
+  if( AOOSP_ADDR_ISBROADCAST(address) ) Serial.printf("|     broadcast     "); 
+  else if( AOOSP_ADDR_ISUNICAST(address) && address<10  ) Serial.printf("|    unicast(%1d)     ",address); 
+  else if( AOOSP_ADDR_ISUNICAST(address) && address<100 ) Serial.printf("|    unicast(%2d)    ",address); 
+  else if( AOOSP_ADDR_ISUNICAST(address) && address<1000) Serial.printf("|    unicast(%3d)   ",address); 
+  else if( AOOSP_ADDR_ISUNICAST(address)                ) Serial.printf("|    unicast(%4d)   ",address); 
+  else if( AOOSP_ADDR_ISUNICAST(address) && address  ) Serial.printf("|   unicast(%4d)   ",address); 
+  else if( OAOSP_ADDR_ISMULTICAST(address) ) Serial.printf("|   groupcast(%1X)    ",address-AOOSP_ADDR_GROUP0); 
+  else Serial.printf("|       error       "); 
+  if( psi<5  ) Serial.printf("|  %d  ",psi);
+  else if( psi==5 ) Serial.printf("| rsv ");
+  else if( psi==6 ) Serial.printf("|  6  ");
+  else if( psi==7 ) Serial.printf("|  8  ");
+  else Serial.printf("| err ");
+  Serial.printf("|%*s%s%*s",(13-command_len)/2,"",command_buf,(12-command_len)/2,"");
+  if( aocmd_osp_tidmap[tid].num<2 ) Serial.printf(" "); else Serial.printf("%d",aocmd_osp_tidmap[tid].num);
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("|      %3d      ",data[3+i]);
+  if( crc==crc2 ) Serial.printf("|    %3d (ok)   ",crc);
+  else Serial.printf("| %3d (ERR)  %3d",crc,crc2);
+  // todo: add crc check
+  Serial.printf("|\n");
+  
+  // Terminate table
+  Serial.printf("+-------+-------------------+-----+-------------");
+  for( int i=0; i<payloadsize; i++ ) Serial.printf("+---------------");
+  Serial.printf("+---------------");
+  Serial.printf("+\n");
+}
+
+
 // Parse 'osp (tx|trx) <data>... [crc]', validate, send, optionally receive
 static void aocmd_osp_trx( int argc, char * argv[] ) {
   uint8_t tx[AOSPI_TELE_MAXSIZE];
 
+  if( argc-2> AOSPI_TELE_MAXSIZE ) { Serial.printf("ERROR: too many <data> (max %d)\n",AOSPI_TELE_MAXSIZE); return; }
+  
   for( int tix=0, aix=2; aix<argc; aix++, tix++ ) { // tix index in tx[], aix index in argv[]
     if( aix==argc-1 && aocmd_cint_isprefix("crc",argv[aix]) ) {
       tx[tix] = aoosp_crc(tx,tix);
@@ -655,6 +823,10 @@ static void aocmd_osp_main( int argc, char * argv[] ) {
     int list= found==LIST_FINDMAX ? found-1 : found;
     for( int i=0; i<list; i++ ) aocmd_osp_variant_print( &aocmd_osp_variant[variants[i]] );
     if( found!=list ) { Serial.printf("WARNING: 'info' has too many matches (list truncated)\n"); return; }
+  } else if( aocmd_cint_isprefix("aoresult",argv[1]) ) {
+    aocmd_osp_aoresult(argc, argv);
+  } else if( aocmd_cint_isprefix("fields",argv[1]) ) {
+    aocmd_osp_fields(argc, argv);
   } else if( aocmd_cint_isprefix("resetinit",argv[1]) ) {
     aocmd_osp_resetinit(argc, argv);
   } else if( aocmd_cint_isprefix("enum",argv[1]) ) {
@@ -698,6 +870,11 @@ static const char aocmd_osp_longhelp[] =
   "SYNTAX: osp info [ <tele> ]\n"
   "- without optional arguments lists all (known) telegrams\n"
   "- with argument, gives info on telegrams with <tele> in name (max 8)\n"
+  "SYNTAX: osp aoresult [ <filter> ]\n"
+  "- lists all aoresult codes (that match <filter>)\n"
+  "- <filter> is an decimal number or a string\n"
+  "SYNTAX: osp fields <data>...\n"
+  "- pretty prints telegram dissected into fields\n"
   "SYNTAX: osp resetinit\n"
   "- resetinit tries reset-initloop, then reset-initbidir (controls dirmux)\n"
   "SYNTAX: osp enum\n"
