@@ -23,7 +23,7 @@
 
 
 // Identifies lib version
-#define AOCMD_VERSION "0.5.5"
+#define AOCMD_VERSION "0.5.6"
 
 
 // Include the (headers of the) modules of this app
@@ -33,7 +33,7 @@
 #include <aocmd_version.h> // the command handler for "version"
 #include <aocmd_board.h>   // the command handler for "board"
 #include <aocmd_file.h>    // the command handler for "file" 
-#include <aocmd_osp.h>    // the command handler for "osp"
+#include <aocmd_osp.h>     // the command handler for "osp"
 #include <aocmd_said.h>    // the command handler for "said"
 
 

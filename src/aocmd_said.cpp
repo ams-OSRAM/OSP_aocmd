@@ -260,9 +260,47 @@ static void aocmd_said_otp( int argc, char * argv[] ) {
 }
 
 
+
+// Print the SAID password as it is registered
+static void aocmd_said_password_show() {
+  uint64_t pw = aoosp_said_testpw_get();
+  Serial.printf("stored password: %012llX\n", pw  );
+}
+
+
+// Parse 'said password [ <pw> ]'
+static void aocmd_said_password( int argc, char * argv[] ) {
+  if( argc==2 ) { 
+    aocmd_said_password_show();
+  } else if( argc==3 ) { 
+    const char * s= argv[2];
+    int len = strlen(s);
+    if( len>12 ) { Serial.printf("ERROR: password too long\n"); return; }
+    uint64_t pw = 0;
+    for( int i=0; i<len; i++ ) {
+      char ch = s[i];
+      if( '0'<=ch && ch<='9' ) pw= pw*16 + (ch-'0');
+      else if( 'a'<=ch && ch<='f' ) pw= pw*16 + (ch-'a'+10);
+      else if( 'A'<=ch && ch<='F' ) pw= pw*16 + (ch-'A'+10);
+      else { Serial.printf("ERROR: password expects hex chars, not '%c'\n", ch); return; }
+    }
+    aoosp_said_testpw_set(pw);
+    if( argv[0][0]!='@' ) aocmd_said_password_show();
+  } else {
+    Serial.printf("ERROR: 'password' has too many args\n"); 
+  }
+}
+
+
 // The handler for the "said" command
 static void aocmd_said_main( int argc, char * argv[] ) {
+  if( aocmd_cint_isprefix("password",argv[1]) ) {
+    aocmd_said_password(argc, argv);
+    return;
+  }
+  
   if( aoosp_exec_resetinit_last()==0 ) Serial.printf("WARNING: 'osp resetinit' must be run first\n");
+  
   if( argc==1 ) {
     Serial.printf("ERROR: 'said' expects argument\n"); return;
   } else if( aocmd_cint_isprefix("i2c",argv[1]) ) {
@@ -290,6 +328,9 @@ static const char aocmd_said_longhelp[] =
   "- without optional arguments dumps OTP memory\n"
   "- with <otpaddr> reads OTP location <otpaddr>\n"
   "- with <data> writes <data> to OTP location <otpaddr>\n"
+  "SYNTAX: said password [ <pw> ]\n"
+  "- without optional argument shows the SAID test password in the firmware\n"
+  "- with <pw> sets it (FFFFFFFFFFFF triggers warning when PW is needed)\n"
   "NOTES:\n"
   "- supports @-prefix to suppress output\n"
   "- commands assume chain is initialized (e.g. 'osp resetinit')\n"

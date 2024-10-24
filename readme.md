@@ -582,6 +582,19 @@ otp: OTP_ADDR_EN       0E.3   0
 otp: STAR_NET_OTP_ADDR 0E.2:0 0 (0x000)
 ```
 
+It is also possible to read a specific byte of the OTP. But writing a byte 
+requires a password, which can be set with the command `said password`.
+
+```
+>> said otp 001 0D
+SAID[001].OTP[0D] -> 09 (ok)
+>> said otp 001 0D 08
+WARNING: WARNING: ask ams-OSRAM for TESTPW and see aoosp_said_testpw_get() for how to set it
+SAID[001].OTP[0D] <- 08 (ok)
+>> said otp 001 0D
+SAID[001].OTP[0D] -> 09 (ok)
+```
+
 
 ## Examples
 
@@ -881,6 +894,9 @@ library is an experimental proof-of-concept.
 
 
 ## Version history _aocmd_
+
+- **2024 October 24, 0.5.6**
+  - New command `said password` to get/set SAID password in `aoosp` store.
 
 - **2024 October 22, 0.5.5**
   - Added command `osp aoresult [ <filter> ]` to show errors (nr/id/description).
