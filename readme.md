@@ -16,8 +16,8 @@ The interesting command is "osp"; it allows sending and receiving OSP telegrams.
 ![aocmd in context](extras/aolibs-aocmd.drawio.png)
 
 The command interpreter can be extended with application specific commands.
-Furthermore, a command file can be stored persistently on the ESP32, 
-and executed at startup. 
+Furthermore, a command file (`boot.cmd`)can be stored persistently on the 
+ESP32, and executed at startup. 
 
 
 ### System setup
@@ -28,7 +28,7 @@ The diagram below shows the system architecture from a command interpreter point
 
 On the right hand side, we see the OSP32 board with some SAIDs.
 They are controlled by the firmware in the ESP, more specifically, 
-via the OSP library (aoosp) which builds on top of the SPI library (aospi).
+by the OSP library (aoosp) which builds on top of the SPI library (aospi).
 
 On the left hand side, we see a PC. It runs an application known as 
 _terminal_. A famous one is [putty](https://www.putty.org/), but the
@@ -58,19 +58,19 @@ executed on power-on-reset. The maximum size of `boot.cmd` is 2k byte.
 
 This section gives a flavor of the stock commands. It is possible to 
 add your own, and for example the _aomw_ and _aoapps_ libraries add 
-(more high-level) commands. This does mean that it depend on the firmware 
+(more high-level) commands. This does mean that it depends on the firmware 
 flashed to the ESP32 which commands are available. To follow the below 
 command fragments it is suggested to use the firmware
 [osplink](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink).
 Others, like [saidbasic](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/saidbasic)
-also include most commands, but the included apps need to be stopped first
-otherwise their control of the OSP chain might interfere with the entered
-commands.
+also include all commands (and some more), but the included apps need to be 
+stopped first otherwise their control of the OSP chain might interfere with 
+the entered commands.
 
 
 #### General commands
 
-Once a terminal is connected and the OSP32 board is rebooted, we are greeted 
+Once a terminal is connected and the OSP32 board is (re)booted, we are greeted 
 with a banner.
 
 ```
@@ -93,7 +93,7 @@ Type 'help' for help
 >> 
 ```
 
-Note that a prompt `>>` is printed. This means that commands can be entered.
+A prompt `>>` is printed. This means that commands can be entered.
 The easiest commands are `version` and `echo` (shown below with an extra CR 
 in between):
 
@@ -108,6 +108,7 @@ aolibs  : result 0.4.0 spi 0.5.0 osp 0.4.0 cmd 0.5.1
 >> 
 >> echo Hello, world!
 Hello, world!
+>>
 ```
 
 A better place to start however, is the `help` command. 
@@ -138,19 +139,20 @@ NOTES:
 - supports @-prefix to suppress output
 ```
 
-The help for the `echo` command is longer; but the help command allows 
+The help for the `echo` command is longer; but the `help` command allows 
 selecting one "topic". Below the `wait` sub command of `echo` is explained.
 
 ```
 >> help echo wait
 SYNTAX: echo wait <time>
-- waits <time> ms (might be useful in scripts
+- waits <time> ms (might be useful in scripts)
 ```
 
 The command interpreter allows commands to be shortened (even to 
 one character). So `version`, `ver` and `v` all give the same result. 
-This also holds for sub commands, so `help version`, `help ver` and `help v` 
-all give the same result. The two abbreviations can be combined:
+Shortening is also supported for sub commands, so 
+`help version`, `help ver` and `help v` 
+all give the same result. The two flavors of shortening can be combined:
 
 ```
 >> h v
@@ -254,7 +256,7 @@ Type 'help' for help
 >> 
 ```
 
-In practice, `boot.cmd` is used to configure a demo. For example for
+In practice, `boot.cmd` is used to configure a demo. For example 
 [saidbasic](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/saidbasic)
 could have the following lines in `boot.cmd` to configure the overall 
 brightness and to define the available flags. Note the `@` symbols; they 
@@ -346,7 +348,10 @@ other 4 RGBIs. Two SAIDs (001 and 005) have an I2C bridge enabled (I0 and I1).
 In total there are 17 RGB triplets (4 RGBIs, 3 SAIDs with 3, 2 SAIDs with 2).
 
 The `osp` command has information on all (currently known) telegrams ("user manual").
-This information is retrieved with the `info` sub command.
+This information is retrieved with the `info` sub command. In isolation,
+that command lists all telegram types. With a telegram name appended
+it lists all details of that telegram type. To know more about telegram type 
+`readpwmchn` enter
 
 ```
 >> osp info readpwmchn
@@ -380,7 +385,7 @@ The following high level command sequence switches on two RGBs;
 the first (SAID 001 channel 0) to green, the second (SAID 2 channel 0)
 to blue. The info for `setpwmchn` explains the 8 bytes payload: 
 `chn unused red1 red0 grn1 grn0 blu1 blu0` (the reason for the unused byte FF
-is that OSP telegrams can have a length of 8 but not 7).
+is that OSP telegrams can have a length of 6 or 8, but not 7).
 
 ```
 osp send 000 reset
@@ -400,7 +405,7 @@ dirmux: bidir
 >> osp send 000 reset 
 tx A0 00 00 22
 rx none ok
->> osp send 001 initbidir 
+>> osp send 001 initbidir // matches dirmux
 tx A0 04 02 A9
 rx A0 25 02 6B 50 7F (230 us) ok
 >> osp send 000 clrerror 
@@ -417,36 +422,10 @@ tx A0 0B CF 00 FF 00 00 00 00 11 11 5D
 rx none ok
 ```
 
-#### Low level OSP
-
-The above "high level" command does show the raw bytes being transferred.
-There is also a "low level" way to send OSP telegrams. This is especially 
-useful for testing. For low level telegrams, the user has 
-to enter all details (all bytes); but there is a feature to get the CRC computed. 
-We can use the high level commands first to get those details.
-
-```
-osp tx A0 00 00 22 // 000 reset
-osp tx A0 04 02 A9 // 001 initbidir
-osp tx A0 00 01 0D // 000 clrerror
-osp tx A0 00 05 B1 // 000 goactive
-osp tx A0 07 CF 00 FF 00 00 11 11 00 00 49 // 001 setpwmchn 00 grn
-osp tx A0 0B CF 00 FF 00 00 00 00 11 11 5D // 002 setpwmchn 00 blu
-```
-
-If commands are sent, they are validated (see `osp validate`).
-Even if validation fails, for example because the CRC doesn't match, 
-or the payload doesn't match, the telegram is still sent. 
-This allows for testing error behavior also.
-
-Validation can be switched off (to make transfers faster) with `osp validate disable`.
-There are other managerial subcommands (`osp log` and `osp cound` and to
-some extend `osp hwtest`).
-
 A typical initialization sequence is as follows. 
 The broadcast (000) of the `reset` telegram resets all nodes;
-this also wipes there addresses. The serial cast of `initloop` reassigns
-addresses (starting at 001). Make sure the direction mux is configured
+this also clears there addresses. The serial cast of `initloop` reassigns
+addresses (typically starting at 001). Make sure the direction mux is configured
 to match the wiring of the demo board, and make sure the `initloop`/`initbidir`
 matches the direction mux.
 
@@ -464,7 +443,7 @@ osp dirmux bidir
 osp send 001 initbidir
 ```
 
-This can be abbreviated to
+These two sequences can be abbreviated to
 
 ```
 osp resetinit
@@ -472,13 +451,74 @@ osp resetinit
 
 which first tries Loop, and then BiDir (and also controls the dirmux).
 
+
+#### Low level OSP
+
+The above "high level" commands do show the raw bytes being transferred.
+There is also a "low level" way to send OSP telegrams. This is especially 
+useful for testing. For low level telegrams, the user has 
+to enter all details (all bytes); but there is a feature to get the CRC computed. 
+We can use the high level commands first to get those details.
+
+```
+osp tx A0 00 00 22 // 000 reset
+osp tx A0 04 02 A9 // 001 initbidir
+osp tx A0 00 01 0D // 000 clrerror
+osp tx A0 00 05 B1 // 000 goactive
+osp tx A0 07 CF 00 FF 00 00 11 11 00 00 49 // 001 setpwmchn 00 grn
+osp tx A0 0B CF 00 FF 00 00 00 00 11 11 5D // 002 setpwmchn 00 blu
+```
+
+If commands are sent, they are validated (see `osp validate`).
+Even if validation fails, for example because the CRC doesn't match, 
+or the payload doesn't match the size indicator, the telegram is still sent. 
+This allows for testing error behavior also.
+
+Validation can be switched off (to make transfers faster) with `osp validate disable`.
+There are other managerial subcommands (`osp log` and `osp count` and to
+some extend `osp hwtest`).
+
+Here is an example with validation triggered; we send goactive with a 
+payload byte FF (where it has none).
+
+```
+>> osp tx  A0 00 05 FF B1
+validate: 05/goactive does not have 1 bytes as payload, but 0..0
+validate: payload is 1 bytes so psi should be 1 but is 0 
+validate: crc B1 is incorrect (should be 53)
+tx A0 00 05 FF B1
+rx none ok
+```
+
+If a node executes an erroneous telegram is implementation dependent 
+(e.g. CRC checking can be disabled in SAID). But for command arguments the OSP 
+specification says "If the length of the argument does not match the 
+expectation, an error flag is raised. The command will not be executed".
+
+We saw in the previous section that the response for bidir was 
+`A0 25 02 6B 50 7F`. We can ask help to dissect this.
+
+```
+>> osp fields A0 25 02 6B 50 7F
++---------------+---------------+---------------+---------------+---------------+---------------+
+|      A0       |      25       |      02       |      6B       |      50       |      7F       |
+|1 0 1 0 0 0 0 0|0 0 1 0 0 1 0 1|0 0 0 0 0 0 1 0|0 1 1 0 1 0 1 1|0 1 0 1 0 0 0 0|0 1 1 1 1 1 1 1|
++-------+-------+-----------+---+-+-------------+---------------+---------------+---------------+
+|preambl|      address      | psi |   command   |    payload    |    payload    |      crc      |
++-------+-------------------+-----+-------------+---------------+---------------+---------------+
+|  0xA  |       0x009       | 0x2 |    0x02     |     0x6B      |     0x50      |   0x7F (ok)   |
+|   -   |    unicast(9)     |  2  |  initbidir  |      107      |       80      |    127 (ok)   |
++-------+-------------------+-----+-------------+---------------+---------------+---------------+
+```
+
+
 #### Topo for OSP
 
 Some firmware variants contain the command `topo` which supports an even 
 higher abstraction in operating an OSP chain. It builds a data structure called 
-the _topology map_, which identifies how many RGB triplets there are (and 
-for each triplet if it is a stand-alone RGBI or an RGB module connected to 
-a SAID). The command `topo pwm` allows setting the color of a triplet,
+the _topology map_, which identifies how many RGB triplets there are.  For 
+each triplet it records if it is a stand-alone RGBI or an RGB module connected 
+to a SAID. The command `topo pwm` allows setting the color of a triplet,
 abstracting away if it is an RGBI or an RGB connected to a SAID.
 
 The below fragment switches RGB triplet 6 to red.
@@ -498,7 +538,8 @@ pwm T6: 1111 0000 0000
 
 In addition to the generic `osp` command, there is the `said` command,
 with support specifically for the SAID chip.
-The fragment below scans the entire OSP chain for SAIDs, 
+
+For example, the fragment below scans the entire OSP chain for SAIDs, 
 checks if they have an I2C bus, and if so, scans the I2C bus.
 
 ```
@@ -582,8 +623,9 @@ otp: OTP_ADDR_EN       0E.3   0
 otp: STAR_NET_OTP_ADDR 0E.2:0 0 (0x000)
 ```
 
-It is also possible to read a specific byte of the OTP. But writing a byte 
-requires a password, which can be set with the command `said password`.
+It is also possible to read a specific byte of the OTP. Writing a byte 
+requires a password, which can be set with the command `said password`, that 
+is, if you know the password (get it from your ams OSRAM contact).
 
 ```
 >> said otp 001 0D
@@ -624,14 +666,16 @@ File > Examples > OSP CommandInterpreter aocmd > ...
   It includes an application banner, it implements the upcalls from 
   the "version" command, and it runs `boot.cmd` on startup.
  
-There is also an official executable - as opposed to an example.
+There is also an official executable - as opposed to an example - in 
+another library, namely _aotop_:
 
 - **osplink** ([source](https://github.com/ams-OSRAM/OSP_aotop/tree/main/examples/osplink))  
   This application allows the PC (with a terminal like the Arduino Serial Monitor)
   to send and receive OSP telegrams, using serial-over-USB. 
   
-  It even comes with an _experimental_ Python library [libosplink](python/libosplink) 
-  and a Python application [exosplink](python/exosplink)
+  This library _aocmd_ comes with an _experimental_ Python 
+  library [libosplink](python/libosplink) and a Python application 
+  [exosplink](python/exosplink) to drive _osplink_.
   
 
 ## Module architecture
@@ -652,7 +696,7 @@ This library contains several modules, see the figure below for an overview (arr
   Version 8.1.0 is used. 
   The prefix is changed from `cmd` to `aocmd_cint`, and two friend commands (`echo` and `help`) 
   were split off (put in separate files).
-  No API documentation has been added.
+  No API documentation has been added for this library.
 
 - **aocmd_echo** (`aocmd_echo.cpp` and `aocmd_echo.h`) is the first friend command of
   the command interpreter. Friend, because it _configures_ the command interpreter,
@@ -796,6 +840,10 @@ over these weak implementations. For details see the section
 The default implementation of the two functions is printing a stub line 
 respectively printing nothing. 
 
+The version command already prints the version of ESP runtime, 
+ESP compiler, Arduino IDE, compilation date/time, and the version of
+the lower libraries aoresult, aospi, aoosp, and aocmd.
+
 
 ### aocmd_file
 
@@ -832,11 +880,11 @@ void loop() {
   This usage is implicit (accessing the global symbol `Serial`), so `Serial` 
   must have been `begin()`.
 
-- The command interpreter must have been initialized, this is part 
-  of `aocmd_init()`.
+- The command interpreter must have been initialized, this is done with 
+  `aocmd_init()`.
 
-- Finally, the function `aocmd_cint_pollserial()` is a convenience function.
-  It check `Serial` for incoming characters, and passes them to the command 
+- Finally, the function `aocmd_cint_pollserial()` is the work horse.
+  It checks `Serial` for incoming characters, and passes them to the command 
   interpreter.
   The command interpreter stores them until a CR or LF is received.
   Then the command interpreter parses the command line (splits it in 
@@ -852,19 +900,23 @@ void loop() {
   losing them (buffer overflow). To mitigate this risk, and for the liveliness 
   of the command interpreter, it is best if the execution time of `...other...`
   is small (well below 100ms).
+  
+  Of course the sender of the  characters (the PC) should not just flood
+  the ESP with commands. Best is to send a command, wait for a new prompt
+  and only then send a new command.
 
 
 ### Upcalls via weak linking
 
-The `aocmd` uses weak linking as a mechanism to let the library upcall to 
+The `aocmd` uses _weak linking_ as a mechanism to let the library upcall to 
 the application.
 
 It is used by the `version` command. It has two functions with weak linkage 
 `aocmd_version_app()` and `aocmd_version_extra()`.
-The first one is a stub printing `no application version version registered`; it shall be replaced by a function in the application that
+The first one is a stub printing `no application version registered`; it shall be replaced by a function in the application that
 prints to Serial the application name and version.
 
-The second function is empty; it may be replaced by am application specific function 
+The second function is empty; it may be replaced by an application specific function 
 that prints to Serial additional ingredients with name and version.
 
 The diagram below explains the behavior of the compiler and the resulting 
@@ -895,6 +947,10 @@ library is an experimental proof-of-concept.
 
 ## Version history _aocmd_
 
+- **2024 November 8, 0.5.7**
+  - Improved `osp info` texts.
+  - Documentation improvements.
+  
 - **2024 October 24, 0.5.6**
   - New command `said password` to get/set SAID password in `aoosp` store.
 

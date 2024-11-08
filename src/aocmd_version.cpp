@@ -37,7 +37,7 @@
             linked, so a client should itself implement aocmd_version_app().
 */
 void __attribute__((weak)) aocmd_version_app() {
-  Serial.printf( "no application version version registered\n" );
+  Serial.printf( "no application version registered\n" );
 }
 
 

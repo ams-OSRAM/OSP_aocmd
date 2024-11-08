@@ -67,7 +67,7 @@ file    : aocmd_template.ino
 
 
 // Library aocmd "upcalls" via aocmd_version_app() to allow the application to print its version.
-// If not implemented, version command prints "no application version version registered\n".
+// If not implemented, version command prints "no application version registered\n".
 void aocmd_version_app() {
   Serial.printf("%s %s\n", AOCMD_TEMPLATE_LONGNAME, AOCMD_TEMPLATE_VERSION );
 }

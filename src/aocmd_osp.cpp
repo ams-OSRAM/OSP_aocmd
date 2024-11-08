@@ -576,7 +576,6 @@ static void aocmd_osp_fields( int argc, char * argv[] ) {
   for( int i=0; i<payloadsize; i++ ) Serial.printf("|      %3d      ",data[3+i]);
   if( crc==crc2 ) Serial.printf("|    %3d (ok)   ",crc);
   else Serial.printf("| %3d (ERR)  %3d",crc,crc2);
-  // todo: add crc check
   Serial.printf("|\n");
   
   // Terminate table
