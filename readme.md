@@ -947,6 +947,11 @@ library is an experimental proof-of-concept.
 
 ## Version history _aocmd_
 
+- **2024 November 29, 0.5.8**
+  - Improved text "help osp".
+  - Improved `osp info` text for `readledst`; added `readledstchn`.
+  - Improved `osp info` text for `readcomst`.
+
 - **2024 November 8, 0.5.7**
   - Improved `osp info` texts.
   - Documentation improvements.
