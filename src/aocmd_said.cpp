@@ -98,8 +98,8 @@ static void aocmd_said_i2c_freq(int argc, char * argv[], uint16_t addr ) {
   int freq;
   if( !aocmd_cint_parse_dec(argv[4],&freq) ) { Serial.printf("ERROR: 'freq' expects <freq>, not '%s'\n",argv[4]); return; }
   // Convert freq to speed (hw speed code)
-  int speed=AOOSP_I2CCFG_SPEED_1000kHz;
-  while( speed!=AOOSP_I2CCFG_SPEED_78kHz && freq<aoosp_prt_i2ccfg_speed(speed) ) {
+  int speed=AOOSP_I2CCFG_SPEED_MAX;
+  while( speed!=AOOSP_I2CCFG_SPEED_MIN && freq<aoosp_prt_i2ccfg_speed(speed) ) {
     speed++;
   }
   // Write
@@ -130,7 +130,7 @@ static void aocmd_said_i2c_write(int argc, char * argv[], uint16_t addr ) {
   int count= bufix-2;
   if( count!=1 && count!=2 && count!=4 && count!=6 ) { Serial.printf("ERROR: 'write' payload can only be 1, 2, 4, or 6 bytes (not %d)\n",count); return; }
   // Now write
-  aoresult_t result= aoosp_send_i2cwrite8(addr, buf[0], buf[1], buf+2, count);
+  aoresult_t result= aoosp_exec_i2cwrite8(addr, buf[0], buf[1], buf+2, count);
   // Feedback
   if( result!=aoresult_ok ) { Serial.printf("ERROR: write(%03X) failed (%s)\n", addr, aoresult_to_str(result) ); return; }
   if( argv[0][0]!='@' ) Serial.printf("said(%03X).i2c.dev(%02X).reg(%02X) %s\n",addr,buf[0],buf[1], aoosp_prt_bytes(buf+2,count) );
@@ -316,7 +316,7 @@ static void aocmd_said_main( int argc, char * argv[] ) {
 // The long help text for the "said" command.
 static const char aocmd_said_longhelp[] =
   "SYNTAX: said i2c <addr> ( scan | freq [<freq>] | <rw> )\n"
-  "- checks <addr> is a SAID with I2C enabled (OTP), if so powers and scans bus\n"
+  "- checks <addr> is a SAID with I2C enabled (OTP), if so powers bus, then\n"
   "- 'scan' scans for I2C devices on bus (<addr> 000 loops over entire chain)\n"
   "- 'freq' gets or sets I2C bus frequency (in Hz)\n"
   "- <rw> can be 'write' <daddr7> <raddr> <data>...\n"

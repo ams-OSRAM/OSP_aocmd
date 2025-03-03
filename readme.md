@@ -631,7 +631,7 @@ is, if you know the password (get it from your ams OSRAM contact).
 >> said otp 001 0D
 SAID[001].OTP[0D] -> 09 (ok)
 >> said otp 001 0D 08
-WARNING: WARNING: ask ams-OSRAM for TESTPW and see aoosp_said_testpw_get() for how to set it
+WARNING: ask ams-OSRAM for TESTPW and see aoosp_said_testpw_get() for how to set it
 SAID[001].OTP[0D] <- 08 (ok)
 >> said otp 001 0D
 SAID[001].OTP[0D] -> 09 (ok)
@@ -765,7 +765,7 @@ module sources (cpp files).
 
 ### aocmd
 
-- `aocmd_init()` initializes the library (command interpreter and file system).
+- `aocmd_init()` initializes the library (command interpreter, file system, osp info tables).
 - `AOCMD_VERSION`  identifies the version of the library.
 - `aocmd_register()` registers all commands from this library - a shorthand 
   for calling the register of all commands contained in the library individually.
@@ -946,6 +946,13 @@ library is an experimental proof-of-concept.
 
 
 ## Version history _aocmd_
+
+- **2025 March 3, 0.5.9**
+  - Adapted to new AOOSP_I2CCFG_SPEED_XXX constants.
+  - `said i2c xxx write` now uses `aoosp_exec_i2cwrite8` io `aoosp_send_i2cwrite8`.
+  - Improved help on 'osp fields'.
+  - Typos fixed.
+  - Fixed documentation error for `aocmd_init()`.
 
 - **2024 November 29, 0.5.8**
   - Improved text "help osp".
