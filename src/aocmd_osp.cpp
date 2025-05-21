@@ -1,6 +1,6 @@
 // aocmd_osp.cpp - command handler for the "osp" command - to send and receive OSP telegrams
 /*****************************************************************************
- * Copyright 2024 by ams OSRAM AG                                            *
+ * Copyright 2024,2025 by ams OSRAM AG                                       *
  * All rights are reserved.                                                  *
  *                                                                           *
  * IMPORTANT - PLEASE READ CAREFULLY BEFORE COPYING, INSTALLING OR USING     *
@@ -53,8 +53,7 @@ typedef struct aocmd_osp_variant {
   int          tid;         // telegram id (0x00..0x7F)
   const char * swname;      // name in the software api
   int          serial;      // command uses serial-cast
-  int          minsize;     // payload size (minimal) in bytes
-  int          maxsize;     // payload size (maximum) in bytes
+  uint16_t     sizemask;    // bit i is set if payload of i bytes is allowed
   int          respsize;    // response payload size (0 means no response) in bytes
   const char * teleargs;    // description of the telegram args
   const char * respargs;    // description of the response args
@@ -64,8 +63,8 @@ typedef struct aocmd_osp_variant {
 
 // Array with info on all telegram variants
 static const aocmd_osp_variant_t aocmd_osp_variant[] = {
-  #define ITEM(tid,swname,serial,minsize,maxsize,respsize,teleargs,respargs,description) \
-    { tid, swname, serial, minsize, maxsize, respsize, teleargs, respargs, description },
+  #define ITEM(tid,swname,serial,sizemask,respsize,teleargs,respargs,description) \
+    { tid, swname, serial, sizemask, respsize, teleargs, respargs, description },
   #include <aocmd_osp.i>
 };
 #define AOCMD_OSP_VARIANT_COUNT                    ( sizeof(aocmd_osp_variant)/sizeof(aocmd_osp_variant_t) )
@@ -79,6 +78,8 @@ static const aocmd_osp_variant_t aocmd_osp_variant[] = {
 #define AOCMD_OSP_VARIANT_IS_SR_VARIANT(var)       ( (var)->tid & (1<<5) )
 
 #define AOCMD_OSP_VARIANT_HAS_INFO(var)            ( (var)->swname!=0 )
+#define AOCMD_OSP_SWNAME(swname)                   ( (swname) ? (swname) : "unknown" )
+
 
 
 // Struct mapping one tid to num vix's
@@ -106,16 +107,16 @@ void aocmd_osp_init() {
     if( AOCMD_OSP_VARIANT_HAS_INFO(var) ) {
       AORESULT_ASSERT( var->swname!=0 );
       AORESULT_ASSERT( var->serial==0 || var->serial==1 );
-      AORESULT_ASSERT( 0<=var->minsize && var->minsize<=var->maxsize && var->maxsize<=8 );
+      AORESULT_ASSERT( var->sizemask!=0 );
+      AORESULT_ASSERT( ((var->sizemask) & ~0x1FF) == 0 ); // not 0x15F: we allow payload of 5 and 7 in the info
       AORESULT_ASSERT( 0<=var->respsize && var->respsize<=8 );
-      AORESULT_ASSERT( var->maxsize>0 || var->teleargs==0 );
+      AORESULT_ASSERT( var->sizemask!=1 || var->teleargs==0 ); // sizemask==1 means no args
       AORESULT_ASSERT( var->respsize>0 || var->respargs==0 );
       AORESULT_ASSERT( var->description!=0 );
     } else {
       AORESULT_ASSERT( var->swname==0 );
       AORESULT_ASSERT( var->serial==0 );
-      AORESULT_ASSERT( var->minsize==0 );
-      AORESULT_ASSERT( var->maxsize==0 );
+      AORESULT_ASSERT( var->sizemask==0 );
       AORESULT_ASSERT( var->respsize==0 );
       AORESULT_ASSERT( var->teleargs==0 );
       AORESULT_ASSERT( var->respargs==0 );
@@ -147,13 +148,37 @@ void aocmd_osp_init() {
 }
 
 
+// converts a sizemask to a human readable string like "1..4,6,8"
+static char aocmd_osp_sizemask_buf[32];
+static const char * aocmd_osp_sizemask_str(int sizemask) {
+  char*p=aocmd_osp_sizemask_buf;
+  bool comma=false;
+  int s1=0; 
+  while( s1<=8 ) {
+    if( sizemask & (1<<s1) ) {
+      int s2=s1;
+      while( (s2+1)<=9 && sizemask & (1<<(s2+1)) ) s2++;
+      if( comma ) p+=sprintf(p,",");
+      if( s1==s2 ) p+=sprintf(p,"%d",s1);
+      else if( s1+1==s2 ) p+=sprintf(p,"%d,%d",s1,s2);
+      else p+=sprintf(p,"%d..%d",s1,s2);
+      s1= s2+1;
+      comma=true;
+    } else {
+      s1++;
+    }
+  }
+  *p='\0';
+  return aocmd_osp_sizemask_buf;
+}
+
 // Prints `variant` in human friendly format to Serial
 static void aocmd_osp_variant_print( const aocmd_osp_variant_t * variant ) {
   Serial.printf("TELEGRAM %02X: ", variant->tid );
   if( ! AOCMD_OSP_VARIANT_HAS_INFO(variant) ) {
     Serial.printf("no info on telegram\n\n"); return;
   }
-  Serial.printf("%s\n", variant->swname );
+  Serial.printf("%s\n", AOCMD_OSP_SWNAME(variant->swname) );
 
   #define LEN 65
   #define INDENT1 "DESCRIPTION:"
@@ -186,20 +211,19 @@ static void aocmd_osp_variant_print( const aocmd_osp_variant_t * variant ) {
   if( AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(variant) ) Serial.printf("broad ");
   Serial.printf("\n");
 
-  Serial.printf("PAYLOAD    : %d", variant->minsize);
-  if( variant->minsize != variant->maxsize ) Serial.printf("-%d",variant->maxsize);
-  if( variant->maxsize>0 ) Serial.printf(" (%s)", variant->teleargs);
+  Serial.printf("PAYLOAD    : %s", aocmd_osp_sizemask_str(variant->sizemask) );
+  if( variant->sizemask!=1 ) Serial.printf(" (%s)", variant->teleargs);
   if( AOCMD_OSP_VARIANT_HAS_RESPONSE(variant) ) Serial.printf("; response %d (%s)",variant->respsize,variant->respargs ); else Serial.printf("; no response");
   Serial.printf("\n");
   Serial.printf("STATUS REQ : ");
   const aocmd_osp_variant_t * altvar = & aocmd_osp_variant[aocmd_osp_tidmap[ variant->tid ^ (1<<5) ].vix];
   if( AOCMD_OSP_VARIANT_IS_SR_VARIANT(variant) ) {
     Serial.printf("yes");
-    Serial.printf(" (tele %02X/%s has none)", altvar->tid, altvar->swname );
+    Serial.printf(" (tele %02X/%s has none)", altvar->tid, AOCMD_OSP_SWNAME(altvar->swname) );
   } else {
     Serial.printf("no");
     if( AOCMD_OSP_VARIANT_HAS_SR_VARIANT(variant) && AOCMD_OSP_VARIANT_HAS_INFO(altvar) ) {
-      Serial.printf(" (tele %02X/%s has sr)", altvar->tid, altvar->swname );
+      Serial.printf(" (tele %02X/%s has sr)", altvar->tid, AOCMD_OSP_SWNAME(altvar->swname) );
     } else {
       Serial.printf(" (no sr possible)" );
     }
@@ -211,7 +235,7 @@ static void aocmd_osp_variant_print( const aocmd_osp_variant_t * variant ) {
   for( int i=0; i<AOCMD_OSP_VARIANT_COUNT; i++ ) {
     if( aocmd_osp_variant[i].tid==tid && &aocmd_osp_variant[i]!=variant ) {
       if( ! duplicate_found ) Serial.printf("DUPLICATE  : ");
-      Serial.printf("%02X/%s ", aocmd_osp_variant[i].tid, aocmd_osp_variant[i].swname );
+      Serial.printf("%02X/%s ", aocmd_osp_variant[i].tid, AOCMD_OSP_SWNAME(aocmd_osp_variant[i].swname) );
       duplicate_found= 1;
     }
   }
@@ -310,7 +334,7 @@ static void aocmd_osp_info_show() {
   for( int vix=0; vix<AOCMD_OSP_VARIANT_COUNT; vix++ ) {
     const aocmd_osp_variant_t * var = & aocmd_osp_variant[vix];
     if( AOCMD_OSP_VARIANT_HAS_INFO(var) ) {
-      Serial.printf("%02X/%-16s", var->tid, var->swname );
+      Serial.printf("%02X/%-16s", var->tid, AOCMD_OSP_SWNAME(var->swname) );
       printed++;
       if( printed%4==0 ) Serial.printf("\n"); else  Serial.printf(" ");
     }
@@ -350,7 +374,7 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
       // [case 1] <tele> has <hex> form and maps to multiple variants (e.g. "4F" for "setpwm" and "setpwmchn"),
       // Find variant using matching payload size
       for( int i=0; i<found; i++ ) {
-        if( aocmd_osp_variant[variants[i]].minsize<=payloadsize && payloadsize<=aocmd_osp_variant[variants[i]].maxsize )
+        if( aocmd_osp_variant[variants[i]].sizemask & (1<<payloadsize) )
           var= &aocmd_osp_variant[variants[i]];
       }
       if( var==0 ) var= &aocmd_osp_variant[variants[0]]; // None fits; just pick first
@@ -379,21 +403,22 @@ static void aocmd_osp_send( int argc, char * argv[] ) {
   if( oacmd_osp_validate ) {
     if( AOCMD_OSP_VARIANT_HAS_INFO(var) ) {
       // Validate payload size
-      if( payloadsize < var->minsize  ||  var->maxsize < payloadsize ) {
-        Serial.printf("validate: %02X/%s does not have %d bytes as payload, but",var->tid,var->swname,payloadsize);
-        for( int i=0; i<found; i++ ) Serial.printf(" %d..%d", aocmd_osp_variant[variants[i]].minsize, aocmd_osp_variant[variants[i]].maxsize );
-        Serial.printf("\n");
+      if( !( var->sizemask & (1<<payloadsize) ) ) {
+        Serial.printf("validate: %02X/%s does not have %d bytes as payload, but",var->tid,AOCMD_OSP_SWNAME(var->swname),payloadsize );
+        const char * sep=" ";
+        for( int i=0; i<found; i++ ) { Serial.printf("%s%s", sep, aocmd_osp_sizemask_str(aocmd_osp_variant[variants[i]].sizemask) ); sep=" or "; }
+        Serial.printf(".\n");
       }
-      if( payloadsize==5 || payloadsize==7 ) Serial.printf("validate: payload can not have size 5 or 7\n");
+      if( payloadsize<0 || payloadsize>8 || payloadsize==5 || payloadsize==7 ) Serial.printf("validate: illegal payload size %d (allowed is 0,1,2,3,4,6,8)\n", payloadsize);
       // Validate addressing
-      if( AOOSP_ADDR_ISBROADCAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support broadcast\n",var->tid,var->swname);
-      if( OAOSP_ADDR_ISMULTICAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support multicast\n",var->tid,var->swname);
+      if( AOOSP_ADDR_ISBROADCAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support broadcast\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
+      if( OAOSP_ADDR_ISMULTICAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support multicast\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
       // Extra check for init (to be aligned with dirmux)
       if( var->tid==2 && aospi_dirmux_is_loop()  ) Serial.printf("validate: 02/initbidir with dirmux in loop\n");
       if( var->tid==3 && aospi_dirmux_is_bidir() ) Serial.printf("validate: 03/initloop with dirmux in bidir\n");
     } else {
       // Validate: no info available
-      Serial.printf("validate: no info %02X/??? to validate against\n",var->tid);
+      Serial.printf("validate: no info on %02X/%s to validate against\n",var->tid, AOCMD_OSP_SWNAME(var->swname));
     }
   }
   if( argv[0][0]!='@' ) Serial.printf("tx %s\n", aoosp_prt_bytes(tx,4+payloadsize) );
@@ -551,7 +576,7 @@ static void aocmd_osp_fields( int argc, char * argv[] ) {
     strncpy(command_buf,"unknown",BUFSIZE);
   } else {
     // get name of first variant
-    strncpy(command_buf,aocmd_osp_variant[aocmd_osp_tidmap[tid].vix].swname,BUFSIZE);
+    strncpy(command_buf,AOCMD_OSP_SWNAME(aocmd_osp_variant[aocmd_osp_tidmap[tid].vix].swname),BUFSIZE);
     // add * when too long
     if( command_buf[BUFSIZE-1]!='\0' ) { command_buf[BUFSIZE-2]='*'; command_buf[BUFSIZE-1]='\0'; }
   }
@@ -618,33 +643,38 @@ static void aocmd_osp_trx( int argc, char * argv[] ) {
       // try to get info (find variant)
       const aocmd_osp_variant_t * var = 0;
       for( int vix=aocmd_osp_tidmap[tid].vix; vix<aocmd_osp_tidmap[tid].vix+aocmd_osp_tidmap[tid].num; vix++ ) {
-        if( aocmd_osp_variant[vix].minsize<=payloadsize && payloadsize<=aocmd_osp_variant[vix].maxsize )
+        if( aocmd_osp_variant[vix].sizemask & (1<<payloadsize) )
           var= &aocmd_osp_variant[vix];
       }
       if( var==0 ) var= &aocmd_osp_variant[aocmd_osp_tidmap[tid].vix]; // None fits; just pick first
-      // subcommand
-      if( argv[1][1]=='r' ) { // command "osp trx" (has rx)
-        if( ! AOCMD_OSP_VARIANT_HAS_RESPONSE(var) ) Serial.printf("validate: a receive command is given, but %02X/%s has no response\n",var->tid,var->swname);
-      } else { // command "osp tx" (tx only)
-        if( AOCMD_OSP_VARIANT_HAS_RESPONSE(var) ) Serial.printf("validate: %02X/%s triggers response, but a tx only command is given\n",var->tid,var->swname);
+      // correct subcommand
+      if( AOCMD_OSP_VARIANT_HAS_INFO(var) ) {
+        if( argv[1][1]=='r' ) { // command "osp trx" (tx and rx)
+          if( ! AOCMD_OSP_VARIANT_HAS_RESPONSE(var) ) Serial.printf("validate: a receive command is given, but %02X/%s has no response\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
+        } else { // command "osp tx" (tx only)
+          if( AOCMD_OSP_VARIANT_HAS_RESPONSE(var) ) Serial.printf("validate: %02X/%s triggers response, but a tx only command is given\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
+        }
       }
       // preamble
       if( preamble!=0xA ) Serial.printf("validate: first nibble should be preamble (0xA)\n");
       // addr
       if( ! AOOSP_ADDR_ISOK(addr) ) Serial.printf("validate: illegal addr %03X\n",addr);
-      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && AOOSP_ADDR_ISBROADCAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support broadcast\n",var->tid,var->swname);
-      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && OAOSP_ADDR_ISMULTICAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support multicast\n",var->tid,var->swname);
+      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && AOOSP_ADDR_ISBROADCAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support broadcast\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
+      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && OAOSP_ADDR_ISMULTICAST(addr) && !AOCMD_OSP_VARIANT_HAS_BROADMULTICAST(var) ) Serial.printf("validate: %02X/%s does not support multicast\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
       // psi (payloadsize)
-      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && ( payloadsize < var->minsize  ||  var->maxsize < payloadsize ) ) {
-        Serial.printf("validate: %02X/%s does not have %d bytes as payload, but",var->tid,var->swname,payloadsize);
-        for( int vix=aocmd_osp_tidmap[tid].vix; vix<aocmd_osp_tidmap[tid].vix+aocmd_osp_tidmap[tid].num; vix++ )
-          Serial.printf(" %d..%d", aocmd_osp_variant[vix].minsize, aocmd_osp_variant[vix].maxsize );
-        Serial.printf("\n");
+      if( AOCMD_OSP_VARIANT_HAS_INFO(var) && !( var->sizemask & (1<<payloadsize) ) ) {
+        Serial.printf("validate: %02X/%s does not have %d bytes as payload, but",var->tid,AOCMD_OSP_SWNAME(var->swname),payloadsize );
+        const char * sep=" ";
+        for( int vix=aocmd_osp_tidmap[tid].vix; vix<aocmd_osp_tidmap[tid].vix+aocmd_osp_tidmap[tid].num; vix++ ) {
+          Serial.printf("%s%s", sep, aocmd_osp_sizemask_str(aocmd_osp_variant[vix].sizemask) );
+          sep=" or ";
+        }
+        Serial.printf(".\n");
       }
       if( payloadsize<0 || payloadsize>8 || payloadsize==5 || payloadsize==7 ) Serial.printf("validate: illegal payload size %d (allowed is 0,1,2,3,4,6,8)\n", payloadsize);
       else if( PSI(payloadsize)!=psi  ) Serial.printf("validate: payload is %d bytes so psi should be %d but is %d \n", payloadsize,PSI(payloadsize),psi);
       // tid
-      if( ! AOCMD_OSP_VARIANT_HAS_INFO(var) ) Serial.printf("validate: no info %02X/??? to validate against\n",var->tid);
+      if( ! AOCMD_OSP_VARIANT_HAS_INFO(var) ) Serial.printf("validate: no info on %02X/%s to validate against\n",var->tid,AOCMD_OSP_SWNAME(var->swname));
       // crc
       if( aoosp_crc(tx,telesize-1)!=tx[telesize-1] ) Serial.printf("validate: crc %02X is incorrect (should be %02X)\n",tx[telesize-1],aoosp_crc(tx,telesize-1));
       // Extra check for init (to be aligned with dirmux)

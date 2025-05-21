@@ -947,10 +947,16 @@ library is an experimental proof-of-concept.
 
 ## Version history _aocmd_
 
+- **2025 May 21, 0.6.0**
+  - Fixed bug: `file` without arg printed error with zero string.
+  - Fixed bug: crash when telegram name was unknown.
+  - Improved `osp info` text for `asktinfo` and `askvinfo`; improved payload size handling.
+  - Added mac address (as board id) to `board`.
+  
 - **2025 March 3, 0.5.9**
   - Adapted to new AOOSP_I2CCFG_SPEED_XXX constants.
   - `said i2c xxx write` now uses `aoosp_exec_i2cwrite8` io `aoosp_send_i2cwrite8`.
-  - Improved help on 'osp fields'.
+  - Improved help on `osp fields`.
   - Typos fixed.
   - Fixed documentation error for `aocmd_init()`.
 

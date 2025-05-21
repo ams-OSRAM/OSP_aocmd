@@ -1,6 +1,6 @@
 // aocmd_board.cpp - command handler for the "board" command
 /*****************************************************************************
- * Copyright 2024 by ams OSRAM AG                                            *
+ * Copyright 2024,2025 by ams OSRAM AG                                       *
  * All rights are reserved.                                                  *
  *                                                                           *
  * IMPORTANT - PLEASE READ CAREFULLY BEFORE COPYING, INSTALLING OR USING     *
@@ -23,6 +23,7 @@
 #include <Arduino.h>        // Serial.print
 #include <esp32-hal-cpu.h>  // esp_reset_reason()
 #include <esp_chip_info.h>  // esp_chip_info_t
+#include <esp_mac.h>        // esp_efuse_mac_get_default()
 #include <esp_flash.h>      // esp_flash_get_size()
 #include <aoresult.h>       // AORESULT_ASSERT
 #include <aocmd_cint.h>     // aocmd_cint_register, aocmd_cint_isprefix, ...
@@ -60,6 +61,15 @@ static void aocmd_board_clk_show() {
 }
 
 
+void aocmd_board_mac_show() {
+  uint8_t mac[8];
+	if( esp_efuse_mac_get_default(mac)!=ESP_OK ) {
+    memset( mac, 0, sizeof(mac) );
+  } 
+  Serial.printf("mac  : %02X:%02X:%02X:%02X %02X:%02X:%02X:%02X\n", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5],mac[6],mac[7]);
+}
+
+
 static void aocmd_board_show() {
   Serial.printf( "chip : model %s (%d cores) rev %d\n",ESP.getChipModel(),ESP.getChipCores(), ESP.getChipRevision() );
   aocmd_board_clk_show();
@@ -71,6 +81,7 @@ static void aocmd_board_show() {
     if( info.features & BIT(4) ) Serial.printf(" Bluetooth-LE");
     if( info.features & BIT(5) ) Serial.printf(" Bluetooth-classic");
     Serial.printf( "\n");
+  aocmd_board_mac_show();
   uint32_t flashsize; esp_flash_get_size(NULL,&flashsize);
   Serial.printf( "flash: %ld byte %s flash\n", flashsize, (info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
   Serial.printf( "app  : %lu byte\n", ESP.getSketchSize() );

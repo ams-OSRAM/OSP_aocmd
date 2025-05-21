@@ -1,6 +1,6 @@
 // aocmd_file.cpp - command handler for the "file" command, also implements a one-file file system.
 /*****************************************************************************
- * Copyright 2024 by ams OSRAM AG                                            *
+ * Copyright 2024,2025 by ams OSRAM AG                                       *
  * All rights are reserved.                                                  *
  *                                                                           *
  * IMPORTANT - PLEASE READ CAREFULLY BEFORE COPYING, INSTALLING OR USING     *
@@ -244,7 +244,9 @@ static void aocmd_file_write_streamfunc( int argc, char * argv[] ) {
 // The handler for the "file" command
 static void aocmd_file_main( int argc, char * argv[] ) {
   AORESULT_ASSERT( EEPROM.length()==AOCMD_FILE_BOOTCMD_EEPROMSIZE ); // inited
-  if( argc>2 ) {
+  if( argc==1 ) {
+    Serial.printf("ERROR: 'file' needs argument\n"); return;
+  } else if( argc>2 ) {
     Serial.printf("ERROR: 'file' has too many args\n"); return;
   } else if( argc>1 && aocmd_cint_isprefix("show",argv[1])) {
     Serial.printf("file: 'boot.cmd' ");
