@@ -1,6 +1,6 @@
 // aocmd_said.h - command handler for the "said" command - to send and receive said specific telegrams
 /*****************************************************************************
- * Copyright 2024 by ams OSRAM AG                                            *
+ * Copyright 2024,2025 by ams OSRAM AG                                       *
  * All rights are reserved.                                                  *
  *                                                                           *
  * IMPORTANT - PLEASE READ CAREFULLY BEFORE COPYING, INSTALLING OR USING     *
@@ -227,7 +227,8 @@ static void aocmd_said_otp( int argc, char * argv[] ) {
 
   // Action: Dump
   if( argc==3 ) {
-    aoosp_exec_otpdump(addr, AOOSP_OTPDUMP_CUSTOMER_HEX | AOOSP_OTPDUMP_CUSTOMER_FIELDS );
+    result= aoosp_exec_otpdump(addr, AOOSP_OTPDUMP_CUSTOMER_HEX | AOOSP_OTPDUMP_CUSTOMER_FIELDS );
+    if( result!=aoresult_ok ) Serial.printf("ERROR: otp dump failed %d %s\n", result, aoresult_to_str(result) );
     return;
   }
 

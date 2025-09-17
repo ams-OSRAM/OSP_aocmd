@@ -126,7 +126,6 @@ topo - build, query and use topology
 version - version of this application, its libraries and tools to build it
 ```
 
-
 As we see, the `help` command in isolation lists all commands.
 It can also give help on a specific command; just append the command name.
 Help on `version` is nicely short:
@@ -140,7 +139,8 @@ NOTES:
 ```
 
 The help for the `echo` command is longer; but the `help` command allows 
-selecting one "topic". Below the `wait` sub command of `echo` is explained.
+selecting one "topic". Below the topic (sub command) `wait` of `echo` is 
+explained.
 
 ```
 >> help echo wait
@@ -164,7 +164,7 @@ NOTES:
 
 Some commands support a `@` as prefix; it suppresses output of that command.
 For example, setting the direction mux, gives feedback on the final state. 
-This can be suppressed by prepending the `@`. The fragment below illustrates 
+This can be suppressed by prepending a `@`. The fragment below illustrates 
 that, and it also shows that comments start with `//`.
 
 
@@ -177,7 +177,7 @@ dirmux: loop
 ```
 
 In the above command the `@` suppresses _all_ output, in other commands 
-the `@` only _reduces_ the output. For example, `help` on a command reduces 
+the `@` only _reduces_ the output. For example, `@help` on a sub command reduces 
 to only the section headers.
 
 ```
@@ -188,6 +188,7 @@ SYNTAX: echo [ enabled | disabled ]
 SYNTAX: echo wait <time>
 NOTES:
 ```
+
 
 #### Boot.cmd
 
@@ -280,8 +281,8 @@ file: 'boot.cmd' empty
 >> 
 ```
 
-
-The `board` command gives information on the ESP hardware.
+Where the standard command `version` gives information about _software_, the
+standard command `board` gives information on the ESP _hardware_.
 
 ```
 >> board
@@ -293,13 +294,14 @@ app  : 378544 byte
 reset: power-on
 ```
 
-An interesting sub command, especially during development, is `board reboot`;
+An interesting sub command of `board`, especially during development, is `reboot`;
 it resets the ESP. This is a software reset, not a power-on-reset, it
 does _not_ execute `boot.cmd`. In other words `reboot` invokes a clean 
 restart of the ESP. Note however, that the OSP nodes and the OLED remain 
 powered, so they keep their state, unless the ESP firmware resets them. 
 
 If `boot.cmd` is needed after `board reboot`, give command `file exec`.
+
 
 #### OSP generic commands
 
@@ -514,8 +516,8 @@ We saw in the previous section that the response for bidir was
 
 #### Topo for OSP
 
-Some firmware variants contain the command `topo` which supports an even 
-higher abstraction in operating an OSP chain. It builds a data structure called 
+Some firmware variants contain the command `topo` which supports a
+high abstraction in operating an OSP chain. It builds a data structure called 
 the _topology map_, which identifies how many RGB triplets there are.  For 
 each triplet it records if it is a stand-alone RGBI or an RGB module connected 
 to a SAID. The command `topo pwm` allows setting the color of a triplet,
@@ -610,17 +612,22 @@ FF FF FF FF FF FF FF FF
 Another (advanced) feature of the `said` command is reading the OTP.
 
 ```
-> said otp 001
+>> said otp 001
 otp: 0x0D: 09 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-otp: CH_CLUSTERING     0D.7:5 0
-otp: HAPTIC_DRIVER     0D.4   0
-otp: SPI_MODE          0D.3   1
-otp: SYNC_PIN_EN       0D.2   0
-otp: STAR_NET_EN       0D.1   0
-otp: I2C_BRIDGE_EN     0D.0   1
-otp: *STAR_START       0E.7   0
-otp: OTP_ADDR_EN       0E.3   0
-otp: STAR_NET_OTP_ADDR 0E.2:0 0 (0x000)
+          7             6             5             4             3             2             1             0
+   +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+0D |            CH_CLUSTERING[2:0]           |HAPTIC_DRIVER|  SPI_MODE   | SYNC_PIN_EN | STAR_NET_EN |I2C_BRIDGE_EN|
+   |                    0                    |      0      |      1      |      0      |      0      |      1      |
+   +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+0E |             |             |             |             | OTP_ADDR_EN |         STAR_NET_OTP_ADDR[2:0]          |
+   |      0      |      0      |      0      |      0      |      0      |                  0b000                  |
+   +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+1E |  CUST_LOCK  |BRANCH_POINT*|             |             |             |  SKIPCHN2*  |  SKIPCHN1*  |  SKIPCHN0*  |
+   |      0      |      0      |      0      |      0      |      0      |      0      |      0      |      0      |
+   +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+1F |                                                   CRC2[7:0]                                                   |
+   |                                                      0x00                                                     |
+   +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
 ```
 
 It is also possible to read a specific byte of the OTP. Writing a byte 
@@ -642,7 +649,7 @@ SAID[001].OTP[0D] -> 09 (ok)
 
 This library comes with the following examples.
 You can find them in the Arduino IDE via 
-File > Examples > OSP CommandInterpreter aocmd > ...
+[File > Examples > OSP CommandInterpreter aocmd > ...](examples):
 
 - **aocmd_min** ([source](examples/aocmd_min))  
   This demo initializes the command interpreter, then starts
@@ -947,6 +954,11 @@ library is an experimental proof-of-concept.
 
 ## Version history _aocmd_
 
+- **2025 September 17, 0.6.1**
+  - Updated otp dump example.
+  - Added link to examples.
+  - `said otp` (dump) now reports error.
+  
 - **2025 May 21, 0.6.0**
   - Fixed bug: `file` without arg printed error with zero string.
   - Fixed bug: crash when telegram name was unknown.

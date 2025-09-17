@@ -1,6 +1,6 @@
 // aocmd.h - command interpreter (over UART/USB) and handlers for telegrams
 /*****************************************************************************
- * Copyright 2024 by ams OSRAM AG                                            *
+ * Copyright 2024,2025 by ams OSRAM AG                                       *
  * All rights are reserved.                                                  *
  *                                                                           *
  * IMPORTANT - PLEASE READ CAREFULLY BEFORE COPYING, INSTALLING OR USING     *
@@ -23,7 +23,7 @@
 
 
 // Identifies lib version
-#define AOCMD_VERSION "0.6.0"
+#define AOCMD_VERSION "0.6.1" 
 
 
 // Include the (headers of the) modules of this app
